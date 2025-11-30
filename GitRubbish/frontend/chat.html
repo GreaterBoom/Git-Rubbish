@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天中心 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+        }
+        .message-list {
+            height: calc(100% - 120px);
+            overflow-y: auto;
+        }
+        .message-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .message-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .message-list::-webkit-scrollbar-thumb {
+            background: #000;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航 -->
+    <header class="border-b-2 border-black sticky top-0 bg-white z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="history.back()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition md:hidden" title="返回上一页">
+                    ←
+                </button>
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
+                    <img src="picture/002.jpg" alt="GitRubbish Logo" class="w-10 h-10" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    <div class="w-10 h-10 bg-black text-white hidden items-center justify-center font-bold text-lg">
+                        GR
+                    </div>
+                    <h1 class="text-2xl font-bold">GitRubbish</h1>
+                </div>
+            </div>
+            
+            <nav class="hidden md:flex items-center gap-2">
+                <a href="index.html" class="font-bold px-3 py-2 hover:bg-gray-100 transition text-sm">首页</a>
+                <a href="chat.html" class="font-bold px-3 py-2 bg-black text-white transition text-sm">聊天</a>
+                <a href="users.html" class="font-bold px-3 py-2 hover:bg-gray-100 transition text-sm">社区成员</a>
+            </nav>
+            
+            <div class="flex items-center gap-3">
+                <div id="userActions"></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- 在线成员列表 -->
+            <aside class="lg:col-span-1">
+                <div class="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sticky top-24">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        👥 在线成员 (<span id="onlineCount">0</span>)
+                    </h3>
+                    <div id="onlineUsers" class="space-y-2 max-h-96 overflow-y-auto">
+                        <!-- 在线用户列表 -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 聊天区域 -->
+            <main class="lg:col-span-3">
+                <div class="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div class="border-b-2 border-black p-4 bg-gray-50">
+                        <h2 class="text-xl font-bold flex items-center gap-2">
+                            💬 公共聊天室
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">欢迎来到 GitRubbish 团队聊天中心</p>
+                    </div>
+
+                    <div class="chat-container p-4">
+                        <!-- 消息列表 -->
+                        <div id="messageList" class="message-list space-y-3 mb-4">
+                            <!-- 消息将动态加载 -->
+                        </div>
+
+                        <!-- 输入区域 -->
+                        <div class="border-t-2 border-black pt-4">
+                            <div class="flex gap-3">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="输入消息... (Ctrl+Enter 发送)"
+                                    class="flex-1 px-4 py-3 border-2 border-black focus:outline-none focus:border-gray-600 transition resize-none"
+                                    rows="3"
+                                    maxlength="500"
+                                ></textarea>
+                                <button 
+                                    onclick="sendMessage()" 
+                                    class="px-6 py-3 bg-black text-white font-bold hover:translate-x-0.5 hover:translate-y-0.5 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] h-fit"
+                                >
+                                    发送
+                                </button>
+                            </div>
+                            <div class="flex justify-between items-center mt-3 text-sm">
+                                <span id="charCount" class="text-gray-600 font-medium">0/500</span>
+                                <span class="text-gray-500">提示：Ctrl+Enter 快速发送</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let currentUser = null;
+        let messagePolling = null;
+        let lastMessageId = 0;
+        let isSending = false; // 防止重复显示
+
+        window.onload = () => {
+            if (!requireLogin()) return;
+            
+            currentUser = getCurrentUser();
+            checkLoginStatus();
+            loadMessages();
+            loadOnlineUsers();
+            startMessagePolling();
+            
+            // 字符计数
+            document.getElementById('messageInput').addEventListener('input', (e) => {
+                document.getElementById('charCount').textContent = `${e.target.value.length}/500`;
+            });
+            
+            // Ctrl+Enter 发送
+            document.getElementById('messageInput').addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        };
+
+        window.onbeforeunload = () => {
+            if (messagePolling) {
+                clearInterval(messagePolling);
+            }
+        };
+
+        function checkLoginStatus() {
+            const token = localStorage.getItem('token');
+            const userInfoStr = localStorage.getItem('userInfo');
+            const userActions = document.getElementById('userActions');
+            
+            if (token && userInfoStr) {
+                try {
+                    const user = JSON.parse(userInfoStr);
+                    userActions.innerHTML = `
+                        <a href="profile.html" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition">
+                            👤 ${user.nickname || user.username}
+                        </a>
+                    `;
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            }
+        }
+
+        // 加载消息
+        async function loadMessages() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/chat/messages`, {
+                    params: {
+                        page: 1,
+                        size: 50
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    const messages = response.data.data.records || [];
+                    if (messages.length > 0) {
+                        lastMessageId = messages[0].id;
+                    }
+                    renderMessages(messages.reverse());
+                    scrollToBottom();
+                }
+            } catch (error) {
+                console.error('加载消息失败', error);
+            }
+        }
+
+        // 轮询新消息
+        function startMessagePolling() {
+            messagePolling = setInterval(async () => {
+                // 如果正在发送消息，跳过本次轮询
+                if (isSending) {
+                    return;
+                }
+                
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/chat/messages`, {
+                        params: {
+                            afterId: lastMessageId,
+                            size: 10
+                        }
+                    });
+                    
+                    if (response.data.code === 200) {
+                        const newMessages = response.data.data.records || [];
+                        if (newMessages.length > 0) {
+                            lastMessageId = newMessages[0].id;
+                            appendMessages(newMessages.reverse());
+                            scrollToBottom();
+                        }
+                    }
+                } catch (error) {
+                    console.error('轮询消息失败', error);
+                }
+            }, 3000); // 每3秒轮询一次
+        }
+
+        // 渲染消息
+        function renderMessages(messages) {
+            const messageList = document.getElementById('messageList');
+            
+            if (messages.length === 0) {
+                messageList.innerHTML = `
+                    <div class="text-center text-gray-500 py-12">
+                        <div class="text-4xl mb-4">💬</div>
+                        <p>暂无消息，开始聊天吧！</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            messageList.innerHTML = messages.map(msg => createMessageHTML(msg)).join('');
+        }
+
+        // 追加新消息
+        function appendMessages(messages) {
+            const messageList = document.getElementById('messageList');
+            messages.forEach(msg => {
+                const messageHTML = createMessageHTML(msg);
+                messageList.insertAdjacentHTML('beforeend', messageHTML);
+            });
+            
+            // 检查消息数量，超过100条则清空旧消息
+            const allMessages = messageList.querySelectorAll('.flex.gap-3');
+            if (allMessages.length > 100) {
+                // 只保留最新的100条
+                const messagesToRemove = allMessages.length - 100;
+                for (let i = 0; i < messagesToRemove; i++) {
+                    allMessages[i].remove();
+                }
+            }
+        }
+
+        // 创建消息HTML
+        function createMessageHTML(msg) {
+            const isOwn = currentUser && currentUser.id === msg.userId;
+            const userName = msg.userName || '匿名用户';
+            const avatar = userName.charAt(0).toUpperCase();
+            
+            return `
+                <div class="flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}">
+                    <div class="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                        ${avatar}
+                    </div>
+                    <div class="flex-1 ${isOwn ? 'text-right' : ''}">
+                        <div class="flex items-center gap-2 mb-1 ${isOwn ? 'justify-end' : ''}">
+                            <span class="font-bold text-sm">${userName}</span>
+                            <span class="text-xs text-gray-500">${formatDateTime(msg.createTime)}</span>
+                        </div>
+                        <div class="inline-block px-4 py-2 ${isOwn ? 'bg-black text-white' : 'bg-gray-100'} border-2 border-black max-w-lg break-words">
+                            ${escapeHtml(msg.content)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            
+            if (!content) {
+                showMessage('请输入消息内容', 'error');
+                return;
+            }
+            
+            try {
+                isSending = true; // 标记正在发送
+                
+                const response = await axios.post(`${API_BASE_URL}/chat/send`, {
+                    content: content
+                });
+                
+                if (response.data.code === 200) {
+                    input.value = '';
+                    document.getElementById('charCount').textContent = '0/500';
+                    
+                    // 立即显示新消息
+                    const newMsg = response.data.data;
+                    lastMessageId = newMsg.id; // 更新最后消息ID
+                    appendMessages([newMsg]);
+                    scrollToBottom();
+                    
+                    // 延迟恢复轮询，避免重复获取
+                    setTimeout(() => {
+                        isSending = false;
+                    }, 1000);
+                }
+            } catch (error) {
+                showMessage('发送失败', 'error');
+                isSending = false;
+            }
+        }
+
+        // 加载在线用户
+
+
+        function scrollToBottom() {
+            const messageList = document.getElementById('messageList');
+            messageList.scrollTop = messageList.scrollHeight;
+        }
+
+        // 加载在线用户
+        async function loadOnlineUsers() {
+            try {
+                // 从后端获取所有用户列表
+                const response = await axios.get(`${API_BASE_URL}/user/list`);
+                
+                if (response.data.code === 200) {
+                    // 显示所有用户（不限制数量）
+                    const users = response.data.data.map(user => ({
+                        id: user.id,
+                        nickname: user.nickname || user.username,
+                        status: 'online'
+                    }));
+                    renderOnlineUsers(users);
+                } else {
+                    // 使用当前用户作为在线用户
+                    const users = [
+                        { id: currentUser?.id, nickname: currentUser?.nickname || currentUser?.username, status: 'online' }
+                    ];
+                    renderOnlineUsers(users);
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                // 使用当前用户作为在线用户
+                const users = [
+                    { id: currentUser?.id, nickname: currentUser?.nickname || currentUser?.username, status: 'online' }
+                ];
+                renderOnlineUsers(users);
+            }
+        }
+
+        function renderOnlineUsers(users) {
+            const onlineUsers = document.getElementById('onlineUsers');
+            document.getElementById('onlineCount').textContent = users.length;
+            
+            onlineUsers.innerHTML = users.map(user => `
+                <div class="flex items-center gap-2 p-2 border-2 border-gray-200 hover:border-black transition cursor-pointer" onclick="viewUserProfile(${user.id})">
+                    <div class="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-bold">
+                        ${(user.nickname || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-bold text-sm">${user.nickname || '用户'}</div>
+                    </div>
+                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                </div>
+            `).join('');
+        }
+        
+        // 查看用户主页
+        function viewUserProfile(userId) {
+            if (userId === currentUser?.id) {
+                // 如果是当前用户，跳转到个人中心
+                window.location.href = 'profile.html';
+            } else {
+                // 跳转到用户主页
+                window.location.href = `user-profile.html?userId=${userId}`;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

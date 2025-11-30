@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vditor 编辑器 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    
+    <!-- Vditor 编辑器 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css" />
+    <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
+    
+    <style>
+        /* 预览区域样式 */
+        #preview {
+            line-height: 1.6;
+        }
+        #preview h1, #preview h2, #preview h3 {
+            font-weight: bold;
+            margin: 1rem 0 0.5rem;
+        }
+        #preview h1 { font-size: 1.5rem; }
+        #preview h2 { font-size: 1.25rem; }
+        #preview h3 { font-size: 1.1rem; }
+        #preview p { margin: 0.5rem 0; }
+        #preview code { 
+            background: #f5f5f5; 
+            padding: 2px 4px; 
+            border-radius: 3px; 
+            font-size: 0.9em; 
+        }
+        #preview pre { 
+            background: #1e1e1e; 
+            padding: 0;
+            border: 2px solid #000; 
+            overflow: hidden;
+            margin: 1rem 0;
+            position: relative;
+        }
+        
+        #preview pre code { 
+            background: none; 
+            padding: 1rem;
+            display: block;
+            overflow-x: auto;
+            color: #d4d4d4;
+        }
+        
+        /* 代码块语言标签 */
+        #preview pre::before,
+        #previewContent pre::before {
+            content: attr(data-lang);
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #000;
+            color: #fff;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 1;
+        }
+        
+        /* 预览模态框的代码块样式 */
+        #previewContent pre {
+            background: #1e1e1e;
+            padding: 0;
+            border: 2px solid #000;
+            overflow: hidden;
+            margin: 1rem 0;
+            position: relative;
+        }
+        
+        #previewContent pre code {
+            background: none;
+            padding: 1rem;
+            display: block;
+            overflow-x: auto;
+            color: #d4d4d4;
+        }
+        
+        /* Vditor 编辑器内代码块样式 - 纯 Markdown 风格（无框） */
+        .vditor-ir pre {
+            background: #fafafa !important;
+            border: none !important;
+            padding: 4px 0 !important;
+            margin: 4px 0 !important;
+            border-radius: 0 !important;
+        }
+        
+        .vditor-ir pre code {
+            color: #333 !important;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+        }
+        
+        /* Markdown 标记符号（```） - 淡化显示 */
+        .vditor-ir .vditor-ir__marker--pre {
+            color: #bbb !important;
+            font-size: 12px !important;
+            user-select: none !important;
+        }
+        
+        /* 编辑器整体背景 */
+        .vditor-ir {
+            background: #ffffff !important;
+        }
+        
+        /* 编辑器内的普通文本 */
+        .vditor-ir__node {
+            line-height: 1.8 !important;
+        }
+        
+        /* 编辑器内的标题样式 */
+        .vditor-ir h1, .vditor-ir h2, .vditor-ir h3 {
+            border-bottom: 2px solid #000;
+            padding-bottom: 8px;
+            margin-top: 20px !important;
+            margin-bottom: 12px !important;
+        }
+        
+        /* 编辑器内的引用块 */
+        .vditor-ir blockquote {
+            border-left: 4px solid #000 !important;
+            padding-left: 16px !important;
+            color: #666 !important;
+            margin: 12px 0 !important;
+        }
+        
+        /* 编辑器内的行内代码 */
+        .vditor-ir code:not(pre code) {
+            background: #f5f5f5 !important;
+            padding: 2px 6px !important;
+            border-radius: 3px !important;
+            font-size: 90% !important;
+            color: #d63384 !important;
+            border: 1px solid #ddd !important;
+        }
+        
+        /* 编辑器内的链接 */
+        .vditor-ir a {
+            color: #0066cc !important;
+            text-decoration: none !important;
+        }
+        
+        .vditor-ir a:hover {
+            text-decoration: underline !important;
+        }
+        
+        /* 移除编辑器内多余的蓝色线条 */
+        .vditor-ir__node--expand::before,
+        .vditor-ir__node--expand::after {
+            display: none !important;
+        }
+        
+        .vditor-ir .vditor-ir__node[data-block="0"]::before {
+            display: none !important;
+        }
+        #preview img {
+            max-width: 100%;
+            height: auto;
+            margin: 1rem 0;
+        }
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+        }
+        #preview table th,
+        #preview table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #preview table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        /* 列表样式 */
+        #preview ul, #preview ol {
+            margin: 0.5rem 0;
+            padding-left: 2rem;
+        }
+        #preview ul li {
+            list-style-type: disc;
+            margin: 0.25rem 0;
+        }
+        #preview ol li {
+            list-style-type: decimal;
+            margin: 0.25rem 0;
+        }
+        #preview ul ul, #preview ol ul {
+            list-style-type: circle;
+        }
+        #preview ul ul ul, #preview ol ul ul {
+            list-style-type: square;
+        }
+        
+        /* Vditor 编辑器内的列表样式 */
+        .vditor-ir ol {
+            list-style-type: decimal !important;
+            padding-left: 2rem !important;
+        }
+        .vditor-ir ol li {
+            list-style-type: decimal !important;
+            display: list-item !important;
+        }
+        .vditor-ir ul {
+            list-style-type: disc !important;
+            padding-left: 2rem !important;
+        }
+        .vditor-ir ul li {
+            list-style-type: disc !important;
+            display: list-item !important;
+        }
+        
+        /* 代码语言选择器样式 */
+        #codeLangSelector {
+            position: fixed;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            z-index: 9999;
+            max-height: 500px;
+            overflow-y: auto;
+            min-width: 280px;
+            max-width: 400px;
+            animation: fadeInScale 0.2s ease-out;
+        }
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+        /* 选择器背景遮罩 */
+        #codeLangSelector.show::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: -1;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        #codeLangSelector::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        #codeLangSelector::-webkit-scrollbar-track {
+            background: #f5f5f5;
+        }
+        
+        #codeLangSelector::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 5px;
+        }
+        
+        #codeLangSelector::-webkit-scrollbar-thumb:hover {
+            background: #000;
+        }
+        
+        .code-lang-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .code-lang-item:hover {
+            background: linear-gradient(to right, #e3f2fd, #bbdefb);
+            color: #1565c0;
+            padding-left: 24px;
+            border-left: 3px solid #2196f3;
+        }
+        
+        .code-lang-item:active {
+            transform: scale(0.98);
+            background: linear-gradient(to right, #bbdefb, #90caf9);
+        }
+        
+        .code-lang-category {
+            padding: 10px 20px;
+            background: #2196f3;
+            color: white;
+            font-weight: bold;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+
+        
+        /* ========== Vditor 工具栏美化 ========== */
+        
+        /* 工具栏整体样式 */
+        .vditor-toolbar {
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef) !important;
+            border-bottom: 2px solid #dee2e6 !important;
+            padding: 10px 16px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: 4px !important;
+        }
+        
+        /* 工具栏按钮样式 */
+        .vditor-toolbar button,
+        .vditor-toolbar .vditor-tooltipped {
+            background: white !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 6px !important;
+            margin: 2px 2px !important;
+            padding: 8px 12px !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+        }
+        
+        /* 按钮悬停效果 */
+        .vditor-toolbar button:hover,
+        .vditor-toolbar .vditor-tooltipped:hover {
+            background: linear-gradient(to bottom, #e3f2fd, #bbdefb) !important;
+            border-color: #2196f3 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 3px 6px rgba(33, 150, 243, 0.2) !important;
+        }
+        
+        /* 按钮激活状态 */
+        .vditor-toolbar button.vditor-toolbar--current,
+        .vditor-toolbar button:active {
+            background: linear-gradient(to bottom, #2196f3, #1976d2) !important;
+            border-color: #1565c0 !important;
+            color: white !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* 工具栏图标增大 */
+        .vditor-toolbar svg {
+            width: 18px !important;
+            height: 18px !important;
+        }
+        
+        /* 按钮组样式 - 让相关按钮更紧凑 */
+        .vditor-toolbar > div {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+        }
+        
+        /* 下拉按钮样式 */
+        .vditor-toolbar .vditor-tooltipped__s,
+        .vditor-toolbar .vditor-tooltipped__n {
+            min-width: 40px !important;
+        }
+        
+        /* 工具栏分隔线 */
+        .vditor-toolbar .vditor-toolbar__divider {
+            background: linear-gradient(to bottom, transparent, #dee2e6, transparent) !important;
+            margin: 0 6px !important;
+            height: 28px !important;
+            width: 1px !important;
+            align-self: center !important;
+        }
+        
+        /* 编辑器内容区域 */
+        .vditor-ir {
+            padding: 20px !important;
+            font-size: 16px !important;
+            line-height: 1.8 !important;
+        }
+        
+        /* 编辑器焦点状态 */
+        .vditor:focus-within .vditor-toolbar {
+            border-bottom-color: #2196f3 !important;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15) !important;
+        }
+        
+        /* 下拉菜单美化 */
+        .vditor-hint,
+        .vditor-panel {
+            border: 2px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            background: white !important;
+        }
+        
+        .vditor-hint button:hover,
+        .vditor-panel button:hover {
+            background: #e3f2fd !important;
+        }
+        
+        /* 隐藏代码块按钮的 tooltip */
+        .vditor-toolbar button[data-type="code-block"]::before,
+        .vditor-toolbar button[data-type="code-block"]::after,
+        .vditor-toolbar .vditor-tooltipped[data-type="code-block"]::before,
+        .vditor-toolbar .vditor-tooltipped[data-type="code-block"]::after {
+            display: none !important;
+            content: none !important;
+            visibility: hidden !important;
+        }
+        
+        /* 隐藏所有空的或 undefined 的 tooltip */
+        .vditor-toolbar .vditor-tooltipped__s::before,
+        .vditor-toolbar .vditor-tooltipped__s::after {
+            content: attr(aria-label) !important;
+        }
+        
+        .vditor-toolbar button[aria-label=""]::before,
+        .vditor-toolbar button[aria-label=""]::after,
+        .vditor-toolbar button[aria-label="undefined"]::before,
+        .vditor-toolbar button[aria-label="undefined"]::after {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- 顶部操作栏 -->
+        <div class="flex items-center gap-3 mb-6 flex-wrap">
+            <button onclick="history.back()" class="px-5 py-2.5 border-2 border-black font-bold hover:bg-black hover:text-white transition-all rounded-lg shadow-sm hover:shadow-md" title="返回上一页">
+                ← 返回
+            </button>
+            <input 
+                type="text" 
+                id="titleInput" 
+                placeholder="请输入文章标题..."
+                class="flex-1 min-w-[300px] px-4 py-2.5 border-2 border-black text-xl font-bold focus:outline-none focus:border-blue-500 transition-all rounded-lg"
+            >
+            <button onclick="showPreview()" class="px-5 py-2.5 border-2 border-blue-500 text-blue-500 font-bold hover:bg-blue-500 hover:text-white transition-all rounded-lg shadow-sm hover:shadow-md">
+                预览
+            </button><!--
+
+                �️ 码预览
+            --><button onclick="saveDraft()" class="px-5 py-2.5 border-2 border-gray-600 text-gray-600 font-bold hover:bg-gray-600 hover:text-white transition-all rounded-lg shadow-sm hover:shadow-md">
+                💾 草稿
+            </button>
+            <button onclick="publishArticle()" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold hover:from-blue-700 hover:to-purple-700 transition-all rounded-lg shadow-md hover:shadow-lg">
+                ✓ 发布
+            </button>
+        </div>
+
+
+
+        <!-- 编辑器区域 - 全宽单栏 -->
+        <div class="mb-6 relative" style="height: 650px;">
+            <div class="border-2 border-gray-300 rounded-xl flex flex-col h-full shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-5 py-3 font-bold flex items-center justify-between">
+                    <span class="flex items-center gap-2">
+                        <span class="text-xl">✍️</span>
+                        <span>Markdown 编辑器</span>
+                        <span class="text-xs bg-blue-500 px-2 py-1 rounded-full">即时渲染</span>
+                    </span>
+                    <span class="text-sm font-normal bg-white/10 px-3 py-1 rounded-full" id="charCount">0 字</span>
+                </div>
+                <div id="vditor" class="flex-1 bg-white"></div>
+            </div>
+        </div>
+        
+        <!-- 代码语言选择器 -->
+        <div id="codeLangSelector" class="hidden"></div>
+
+        <!-- 文章设置 -->
+        <div class="border-2 border-gray-300 rounded-xl shadow-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 font-bold flex items-center gap-2">
+                <span class="text-xl">⚙️</span>
+                <span>文章设置</span>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block font-bold mb-2">📁 分类</label>
+                        <select id="categorySelect" class="w-full px-4 py-2 border-2 border-black focus:outline-none hover:bg-gray-50">
+                            <option value="">选择分类</option>
+                            <option value="技术笔记">技术笔记</option>
+                            <option value="代码片段">代码片段</option>
+                            <option value="项目经验">项目经验</option>
+                            <option value="工具推荐">工具推荐</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block font-bold mb-2">📝 文章摘要</label>
+                        <textarea 
+                            id="summaryInput" 
+                            placeholder="简短描述文章内容..."
+                            class="w-full px-4 py-2 border-2 border-black focus:outline-none resize-none"
+                            rows="3"
+                            maxlength="200"
+                        ></textarea>
+                        <div class="text-sm text-gray-500 mt-1" id="summaryLength">0/200</div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block font-bold mb-3">🏷️ 标签（点击选择）</label>
+                    <div id="selectedTags" class="flex flex-wrap gap-2 mb-3 min-h-[44px] p-3 border-2 border-dashed border-gray-300 bg-gray-50"></div>
+                    <div class="border-2 border-black p-4 max-h-64 overflow-y-auto bg-white">
+                        <div id="availableTags" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block font-bold mb-3">📎 附件上传</label>
+                    <div class="border-2 border-dashed border-gray-300 p-6 text-center bg-gray-50 hover:bg-gray-100 transition">
+                    <input 
+                        type="file" 
+                        id="attachmentInput" 
+                        accept=".zip,.rar,.7z,.tar,.gz,.java,.py,.js,.html,.css,.txt,.md,.json,.xml,.yml"
+                        class="hidden"
+                        onchange="handleFileSelect(event)"
+                    >
+                    <button 
+                        type="button"
+                        onclick="document.getElementById('attachmentInput').click()"
+                        class="px-6 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition"
+                    >
+                        选择文件
+                    </button>
+                    <p class="text-sm text-gray-500 mt-2">支持 .zip, .rar, .7z 等压缩包及代码文件，最大 50MB</p>
+                    
+                    <div id="attachmentInfo" class="hidden mt-4 p-3 bg-gray-50 border-2 border-black">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">📦</span>
+                                <div class="text-left">
+                                    <p class="font-bold" id="attachmentName"></p>
+                                    <p class="text-sm text-gray-600" id="attachmentSize"></p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onclick="removeAttachment()"
+                                class="px-3 py-1 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition"
+                            >
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="uploadProgress" class="hidden mt-4">
+                        <div class="w-full bg-gray-200 h-2">
+                            <div id="progressBar" class="bg-black h-2 transition-all" style="width: 0%"></div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">上传中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl max-h-[90vh] flex flex-col border-4 border-black">
+            <!-- 预览头部 -->
+            <div class="flex items-center justify-between p-4 border-b-2 border-black">
+                <h2 class="text-2xl font-bold">文章预览</h2>
+                <button onclick="closePreview()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    ✕ 关闭
+                </button>
+            </div>
+            
+            <!-- 预览内容 -->
+            <div class="flex-1 overflow-y-auto p-8">
+                <!-- 文章标题 -->
+                <h1 id="previewTitle" class="text-4xl font-bold mb-4"></h1>
+                
+                <!-- 文章元信息 -->
+                <div class="flex items-center gap-4 text-sm text-gray-600 mb-6 pb-6 border-b-2 border-gray-200">
+                    <span id="previewCategory"></span>
+                    <span id="previewTags"></span>
+                    <span id="previewDate"></span>
+                </div>
+                
+                <!-- 文章摘要 -->
+                <div id="previewSummary" class="bg-gray-50 border-l-4 border-black p-4 mb-6 italic"></div>
+                
+                <!-- 文章内容 -->
+                <div id="previewContent" class="prose prose-lg max-w-none"></div>
+                
+                <!-- 附件信息 -->
+                <div id="previewAttachment" class="hidden mt-6 p-4 bg-gray-50 border-2 border-black">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">📦</span>
+                        <div>
+                            <p class="font-bold">附件</p>
+                            <p id="previewAttachmentName" class="text-sm text-gray-600"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 预览底部操作 -->
+            <div class="flex items-center justify-between p-4 border-t-2 border-black bg-gray-50">
+                <button onclick="closePreview()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    继续编辑
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="closePreview(); saveDraft()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white">
+                        保存草稿
+                    </button>
+                    <button onclick="closePreview(); publishArticle()" class="px-6 py-3 bg-black text-white font-bold hover:bg-gray-800">
+                        发布文章
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 代码块编辑弹窗 -->
+    <div id="codeEditModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-5xl max-h-[90vh] flex flex-col border-4 border-black">
+            <!-- 弹窗头部 -->
+            <div class="flex items-center justify-between p-4 border-b-2 border-black bg-gray-50">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-xl font-bold">💻 代码块编辑器</h2>
+                    <select id="codeLanguageSelect" class="px-3 py-1 border-2 border-black font-bold text-sm">
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="cpp">C++</option>
+                        <option value="csharp">C#</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                        <option value="php">PHP</option>
+                        <option value="ruby">Ruby</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="sql">SQL</option>
+                        <option value="bash">Bash</option>
+                        <option value="json">JSON</option>
+                        <option value="yaml">YAML</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="text">纯文本</option>
+                    </select>
+                </div>
+                <button onclick="closeCodeEdit()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    ✕ 关闭
+                </button>
+            </div>
+            
+            <!-- 代码编辑区 -->
+            <div class="flex-1 overflow-hidden">
+                <textarea 
+                    id="codeTextarea" 
+                    class="w-full h-full p-4 font-mono text-sm resize-none focus:outline-none border-none"
+                    style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; line-height: 1.6;"
+                    placeholder="在此输入代码..."
+                ></textarea>
+            </div>
+            
+            <!-- 弹窗底部操作 -->
+            <div class="flex items-center justify-between p-4 border-t-2 border-black bg-gray-50">
+                <button onclick="closeCodeEdit()" class="px-6 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    取消
+                </button>
+                <button onclick="saveCodeBlock()" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                    ✓ 插入代码
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let articleId = null;
+        let isEdit = false;
+        let selectedTags = [];
+        let attachmentData = null;
+        let vditor = null;
+        let currentCodeBlockPosition = null;
+        
+        // 常用标签 - 与主页完全一致
+        const commonTags = {
+            '前端开发': ['JavaScript', 'TypeScript', 'Vue', 'React', 'Angular', 'HTML', 'CSS', 'Tailwind', 'Bootstrap', 'Webpack', 'Vite'],
+            '后端开发': ['Node.js', 'Express', 'Nest.js', 'Java', 'Spring Boot', 'Spring Cloud', 'MyBatis', 'Python', 'Django', 'Flask', 'FastAPI', 'Go', 'Gin', 'Rust'],
+            '数据库': ['MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'SQL', 'NoSQL'],
+            '运维部署': ['Docker', 'Kubernetes', 'CI/CD', 'Linux', 'Nginx', 'Jenkins'],
+            '嵌入式': ['嵌入式', 'STM32', 'Arduino', 'ESP32', 'ESP8266', '51单片机', 'AVR', 'ARM', 'Cortex-M', 'FreeRTOS', 'RT-Thread', 'HAL库', 'Keil', 'IAR'],
+            '物联网': ['物联网', 'IoT', 'MQTT', 'CoAP', 'LoRaWAN', 'NB-IoT', 'Zigbee', 'Bluetooth', '智能家居', '传感器', '边缘计算'],
+            '通用技能': ['Git', '算法', '数据结构', '设计模式', '微服务', '性能优化', '安全', '测试', '前端', '后端', '全栈']
+        };
+
+        window.onload = function() {
+            if (!requireLogin()) return;
+            
+            articleId = getUrlParam('id');
+            isEdit = !!articleId;
+            
+            // 初始化 Vditor
+            initVditor();
+            
+            if (isEdit) {
+                loadArticle();
+            }
+            
+            // 摘要字数统计
+            document.getElementById('summaryInput').addEventListener('input', (e) => {
+                document.getElementById('summaryLength').textContent = `${e.target.value.length}/200`;
+            });
+            
+            // 初始化标签选择器
+            renderAvailableTags();
+        };
+
+        // 初始化 Vditor
+        function initVditor() {
+            vditor = new Vditor('vditor', {
+                height: '100%',
+                mode: 'ir', // 即时渲染模式
+                placeholder: '开始写作... 支持 Markdown 语法\n\n可以直接粘贴图片，或点击工具栏的图片按钮上传',
+                theme: 'classic',
+                icon: 'ant',
+                toolbar: [
+                    'emoji',
+                    'headings',
+                    'bold',
+                    'italic',
+                    'strike',
+                    '|',
+                    'line',
+                    'quote',
+                    'list',
+                    'ordered-list',
+                    'check',
+                    '|',
+                    {
+                        name: 'code-block',
+                        tip: '',
+                        className: 'right',
+                        icon: '<svg><use xlink:href="#vditor-icon-code"></use></svg>',
+                        click() {
+                            showCodeLanguageSelector();
+                        }
+                    },
+                    'inline-code',
+                    '|',
+                    'upload', // 图片上传
+                    'link',
+                    'table',
+                    '|',
+                    'undo',
+                    'redo',
+                    '|',
+                    'fullscreen',
+                    'help'
+                ],
+                preview: {
+                    hljs: {
+                        style: 'github'
+                    }
+                },
+                hint: {
+                    parse: false
+                },
+                counter: {
+                    enable: true
+                },
+                upload: {
+                    accept: 'image/*',
+                    url: API_BASE_URL + '/file/upload-image',
+                    fieldName: 'file',
+                    max: 10 * 1024 * 1024, // 10MB
+                    format(files, responseText) {
+                        // 处理上传响应
+                        try {
+                            const response = JSON.parse(responseText);
+                            if (response.code === 200) {
+                                const data = response.data;
+                                return JSON.stringify({
+                                    code: 0,
+                                    data: {
+                                        errFiles: [],
+                                        succMap: {
+                                            [data.originalFilename]: API_BASE_URL + data.url
+                                        }
+                                    }
+                                });
+                            } else {
+                                return JSON.stringify({
+                                    code: 1,
+                                    msg: response.message || '上传失败'
+                                });
+                            }
+                        } catch (error) {
+                            console.error('解析上传响应失败:', error);
+                            return JSON.stringify({
+                                code: 1,
+                                msg: '上传失败'
+                            });
+                        }
+                    },
+                    error(msg) {
+                        showMessage('图片上传失败: ' + msg, 'error');
+                    },
+                    success(editor, msg) {
+                        console.log('上传成功:', msg);
+                    }
+                },
+                input: (value) => {
+                    // 实时更新字数统计
+                    updateCharCount(value);
+                },
+                after: () => {
+                    console.log('Vditor 初始化完成');
+                    
+                    // 移除代码块按钮的 tooltip 属性，防止显示 undefined
+                    setTimeout(() => {
+                        const codeBlockBtn = document.querySelector('.vditor-toolbar button[data-type="code-block"]');
+                        if (codeBlockBtn) {
+                            codeBlockBtn.removeAttribute('aria-label');
+                            codeBlockBtn.classList.remove('vditor-tooltipped', 'vditor-tooltipped__s');
+                        }
+                    }, 100);
+                }
+            });
+        }
+        
+
+        
+        // 更新字数统计
+        function updateCharCount(content) {
+            const count = content ? content.length : 0;
+            const charCountEl = document.getElementById('charCount');
+            if (charCountEl) {
+                charCountEl.textContent = `${count} 字`;
+            }
+        }
+
+        // 加载文章（编辑模式）
+        async function loadArticle() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/article/detail`, {
+                    params: { id: articleId }
+                });
+                
+                if (response.data.code === 200) {
+                    const article = response.data.data;
+                    document.getElementById('titleInput').value = article.title || '';
+                    
+                    // 设置编辑器内容
+                    if (vditor) {
+                        vditor.setValue(article.content || '');
+                    }
+                    
+                    document.getElementById('categorySelect').value = article.category || '';
+                    document.getElementById('summaryInput').value = article.summary || '';
+                    
+                    // 加载标签
+                    if (article.tags) {
+                        selectedTags = article.tags.split(',').map(t => t.trim()).filter(t => t);
+                        renderSelectedTags();
+                        renderAvailableTags();
+                    }
+                    
+                    // 加载附件信息
+                    if (article.attachmentUrl && article.attachmentName) {
+                        attachmentData = {
+                            url: article.attachmentUrl,
+                            originalFilename: article.attachmentName
+                        };
+                        showAttachmentInfo(article.attachmentName, 0);
+                        document.getElementById('attachmentSize').textContent = '已上传';
+                    }
+                }
+            } catch (error) {
+                showMessage('加载文章失败', 'error');
+            }
+        }
+        
+        // 渲染可选标签
+        function renderAvailableTags() {
+            const container = document.getElementById('availableTags');
+            if (!container) return;
+            
+            let html = '';
+            
+            for (const [category, tags] of Object.entries(commonTags)) {
+                html += `
+                    <div class="w-full mb-3">
+                        <div class="text-xs font-bold text-gray-600 mb-2">${category}</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${tags.map(tag => {
+                                const isSelected = selectedTags.includes(tag);
+                                return `
+                                    <button type="button" class="cursor-pointer px-3 py-1 border border-black text-sm hover:bg-black hover:text-white transition ${isSelected ? 'bg-black text-white' : 'bg-white'}" 
+                                          onclick="toggleTag('${tag}')">
+                                        ${tag}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 切换标签选择
+        function toggleTag(tag) {
+            const index = selectedTags.indexOf(tag);
+            if (index > -1) {
+                selectedTags.splice(index, 1);
+            } else {
+                selectedTags.push(tag);
+            }
+            renderSelectedTags();
+            renderAvailableTags();
+        }
+        
+        // 渲染已选标签
+        function renderSelectedTags() {
+            const container = document.getElementById('selectedTags');
+            if (!container) return;
+            
+            if (selectedTags.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 text-sm">未选择标签</span>';
+            } else {
+                container.innerHTML = selectedTags.map(tag => {
+                    return `
+                        <button type="button" class="px-3 py-1 bg-black text-white text-sm font-medium cursor-pointer hover:bg-gray-700 transition" onclick="toggleTag('${tag}')">
+                            ${tag} ×
+                        </button>
+                    `;
+                }).join('');
+            }
+        }
+
+        // 保存草稿
+        async function saveDraft() {
+            await saveArticle(0);
+        }
+
+        // 发布文章
+        async function publishArticle() {
+            await saveArticle(1);
+        }
+
+        // 保存文章
+        async function saveArticle(status) {
+            const title = document.getElementById('titleInput').value.trim();
+            const content = vditor ? vditor.getValue() : '';
+            const category = document.getElementById('categorySelect').value;
+            const tags = selectedTags.join(',');
+            const summary = document.getElementById('summaryInput').value.trim();
+            
+            if (!title) {
+                showMessage('请输入文章标题', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('请输入文章内容', 'error');
+                return;
+            }
+            
+            try {
+                const data = {
+                    title,
+                    content,
+                    category,
+                    tags,
+                    summary,
+                    status
+                };
+                
+                // 添加附件信息
+                if (attachmentData) {
+                    data.attachmentUrl = attachmentData.url;
+                    data.attachmentName = attachmentData.originalFilename;
+                }
+                
+                if (isEdit) {
+                    data.id = articleId;
+                }
+                
+                const response = await axios.post(`${API_BASE_URL}/article`, data);
+                
+                if (response.data.code === 200) {
+                    showMessage(status === 0 ? '草稿保存成功' : '文章发布成功！🎉', 'success');
+                    setTimeout(() => {
+                        if (status === 1) {
+                            window.location.href = 'index.html';
+                        } else {
+                            window.location.href = 'profile.html';
+                        }
+                    }, 1500);
+                }
+            } catch (error) {
+                showMessage('保存失败', 'error');
+            }
+        }
+        
+        // 处理文件选择
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showMessage('文件大小不能超过 50MB', 'error');
+                event.target.value = '';
+                return;
+            }
+            
+            document.getElementById('uploadProgress').classList.remove('hidden');
+            document.getElementById('attachmentInfo').classList.add('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await axios.post(`${API_BASE_URL}/file/upload`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        document.getElementById('progressBar').style.width = percentCompleted + '%';
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    attachmentData = response.data.data;
+                    showAttachmentInfo(file.name, file.size);
+                    showMessage('文件上传成功', 'success');
+                } else {
+                    showMessage(response.data.message || '上传失败', 'error');
+                }
+            } catch (error) {
+                console.error('上传失败:', error);
+                showMessage('文件上传失败', 'error');
+            } finally {
+                document.getElementById('uploadProgress').classList.add('hidden');
+                document.getElementById('progressBar').style.width = '0%';
+                event.target.value = '';
+            }
+        }
+        
+        // 显示附件信息
+        function showAttachmentInfo(name, size) {
+            document.getElementById('attachmentName').textContent = name;
+            document.getElementById('attachmentSize').textContent = formatFileSize(size);
+            document.getElementById('attachmentInfo').classList.remove('hidden');
+        }
+        
+        // 移除附件
+        function removeAttachment() {
+            if (confirm('确定要删除附件吗？')) {
+                attachmentData = null;
+                document.getElementById('attachmentInfo').classList.add('hidden');
+                document.getElementById('attachmentInput').value = '';
+                showMessage('附件已移除', 'success');
+            }
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // 显示预览
+        function showPreview() {
+            const title = document.getElementById('titleInput').value.trim();
+            const content = vditor ? vditor.getValue() : '';
+            const category = document.getElementById('categorySelect').value;
+            const tags = selectedTags.join(', ');
+            const summary = document.getElementById('summaryInput').value.trim();
+            
+            // 验证
+            if (!title) {
+                showMessage('请输入文章标题', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('请输入文章内容', 'error');
+                return;
+            }
+            
+            // 设置预览内容
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewCategory').textContent = category ? `📁 ${category}` : '';
+            document.getElementById('previewTags').textContent = tags ? `🏷️ ${tags}` : '';
+            document.getElementById('previewDate').textContent = `📅 ${new Date().toLocaleDateString('zh-CN')}`;
+            
+            // 设置摘要
+            if (summary) {
+                document.getElementById('previewSummary').textContent = summary;
+                document.getElementById('previewSummary').classList.remove('hidden');
+            } else {
+                document.getElementById('previewSummary').classList.add('hidden');
+            }
+            
+            // 渲染 Markdown 内容
+            if (vditor) {
+                const html = vditor.getHTML();
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = html;
+                
+                // 为代码块添加语言标签
+                const codeBlocks = previewContent.querySelectorAll('pre code');
+                codeBlocks.forEach(code => {
+                    const pre = code.parentElement;
+                    const className = code.className;
+                    
+                    // 提取语言类型
+                    const langMatch = className.match(/language-(\w+)/);
+                    if (langMatch) {
+                        const lang = langMatch[1];
+                        pre.setAttribute('data-lang', lang);
+                    } else {
+                        pre.setAttribute('data-lang', 'code');
+                    }
+                });
+            }
+            
+            // 显示附件信息
+            if (attachmentData) {
+                document.getElementById('previewAttachmentName').textContent = attachmentData.originalFilename;
+                document.getElementById('previewAttachment').classList.remove('hidden');
+            } else {
+                document.getElementById('previewAttachment').classList.add('hidden');
+            }
+            
+            // 显示模态框
+            document.getElementById('previewModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭预览
+        function closePreview() {
+            document.getElementById('previewModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // ESC 键关闭预览和代码编辑
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePreview();
+                closeCodeEdit();
+                hideCodeLanguageSelector();
+            }
+        });
+        
+
+        // 打开代码块编辑弹窗
+        function openCodeEdit(code = '', language = 'javascript') {
+            document.getElementById('codeTextarea').value = code;
+            document.getElementById('codeLanguageSelect').value = language;
+            document.getElementById('codeEditModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('codeTextarea').focus();
+        }
+        
+        // 关闭代码块编辑弹窗
+        function closeCodeEdit() {
+            document.getElementById('codeEditModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            currentCodeBlockPosition = null;
+        }
+        
+        // 保存代码块
+        function saveCodeBlock() {
+            const code = document.getElementById('codeTextarea').value;
+            const language = document.getElementById('codeLanguageSelect').value;
+            
+            if (!code.trim()) {
+                showMessage('请输入代码内容', 'error');
+                return;
+            }
+            
+            // 构建 Markdown 代码块
+            const codeBlock = `\`\`\`${language}\n${code}\n\`\`\`\n\n`;
+            
+            // 插入到编辑器
+            if (vditor) {
+                try {
+                    // 使用 insertValue 方法在光标位置插入内容
+                    vditor.insertValue(codeBlock);
+                    showMessage('代码块已插入', 'success');
+                } catch (error) {
+                    console.error('插入代码块失败:', error);
+                    // 如果 insertValue 不可用，使用 setValue 追加到末尾
+                    const currentValue = vditor.getValue();
+                    vditor.setValue(currentValue + '\n' + codeBlock);
+                    showMessage('代码块已添加到末尾', 'success');
+                }
+            }
+            
+            closeCodeEdit();
+        }
+        
+        // 点击页面其他地方关闭代码语言选择器
+        document.addEventListener('click', function(e) {
+            const selector = document.getElementById('codeLangSelector');
+            if (selector && !selector.contains(e.target) && !e.target.closest('.vditor-toolbar')) {
+                hideCodeLanguageSelector();
+            }
+        });
+        
+        // 显示代码语言选择器
+        function showCodeLanguageSelector() {
+            const selector = document.getElementById('codeLangSelector');
+            if (!selector) return;
+            
+            // 代码语言列表（按分类）
+            const languages = {
+                '前端开发': [
+                    { name: 'JavaScript', value: 'javascript' },
+                    { name: 'TypeScript', value: 'typescript' },
+                    { name: 'HTML', value: 'html' },
+                    { name: 'CSS', value: 'css' },
+                    { name: 'Vue', value: 'vue' },
+                    { name: 'React JSX', value: 'jsx' }
+                ],
+                '后端开发': [
+                    { name: 'Java', value: 'java' },
+                    { name: 'Python', value: 'python' },
+                    { name: 'Go', value: 'go' },
+                    { name: 'Rust', value: 'rust' },
+                    { name: 'C', value: 'c' },
+                    { name: 'C++', value: 'cpp' },
+                    { name: 'C#', value: 'csharp' },
+                    { name: 'PHP', value: 'php' },
+                    { name: 'Ruby', value: 'ruby' },
+                    { name: 'Swift', value: 'swift' },
+                    { name: 'Kotlin', value: 'kotlin' },
+                    { name: 'Scala', value: 'scala' }
+                ],
+                '数据库': [
+                    { name: 'SQL', value: 'sql' },
+                    { name: 'MySQL', value: 'mysql' },
+                    { name: 'PostgreSQL', value: 'postgresql' }
+                ],
+                '脚本与配置': [
+                    { name: 'Bash', value: 'bash' },
+                    { name: 'Shell', value: 'shell' },
+                    { name: 'PowerShell', value: 'powershell' },
+                    { name: 'JSON', value: 'json' },
+                    { name: 'YAML', value: 'yaml' },
+                    { name: 'XML', value: 'xml' },
+                    { name: 'TOML', value: 'toml' }
+                ],
+                '运维与工具': [
+                    { name: 'Dockerfile', value: 'dockerfile' },
+                    { name: 'Nginx', value: 'nginx' },
+                    { name: 'Apache', value: 'apache' },
+                    { name: 'Makefile', value: 'makefile' }
+                ],
+                '其他': [
+                    { name: 'Markdown', value: 'markdown' },
+                    { name: '纯文本', value: 'plaintext' },
+                    { name: 'Diff', value: 'diff' }
+                ]
+            };
+            
+            // 生成选择器内容
+            let html = '';
+            for (const [category, langs] of Object.entries(languages)) {
+                html += `<div class="code-lang-category">${category}</div>`;
+                langs.forEach(lang => {
+                    html += `<div class="code-lang-item" onclick="insertCodeBlock('${lang.value}')">${lang.name}</div>`;
+                });
+            }
+            
+            selector.innerHTML = html;
+            
+            // 定位选择器（在编辑器中间）
+            const editorRect = document.getElementById('vditor').getBoundingClientRect();
+            selector.style.left = (editorRect.left + editorRect.width / 2 - 100) + 'px';
+            selector.style.top = (editorRect.top + 100) + 'px';
+            
+            selector.classList.remove('hidden');
+            selector.classList.add('show');
+        }
+        
+        // 隐藏代码语言选择器
+        function hideCodeLanguageSelector() {
+            const selector = document.getElementById('codeLangSelector');
+            if (selector) {
+                selector.classList.add('hidden');
+                selector.classList.remove('show');
+            }
+        }
+        
+        // 插入代码块
+        function insertCodeBlock(language) {
+            if (vditor) {
+                // 插入简洁的代码块格式
+                const codeBlock = `\n\`\`\`${language}\n\n\`\`\`\n`;
+                vditor.insertValue(codeBlock);
+                
+                // 延迟聚焦，让 Vditor 完成渲染
+                setTimeout(() => {
+                    vditor.focus();
+                    
+                    // 尝试将光标定位到代码块内部
+                    const textarea = document.querySelector('.vditor-ir .vditor-ir__preview');
+                    if (textarea) {
+                        // 触发一次点击，激活编辑区域
+                        const event = new MouseEvent('click', {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window
+                        });
+                        textarea.dispatchEvent(event);
+                    }
+                }, 100);
+            }
+            hideCodeLanguageSelector();
+        }
+        
+
+    </script>
+</body>
+</html>

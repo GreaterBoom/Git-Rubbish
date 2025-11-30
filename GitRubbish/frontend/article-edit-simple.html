@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown 编辑器 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #fff;
+            color: #333;
+        }
+        
+        /* 编辑器容器 */
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            height: calc(100vh - 200px);
+            border: 2px solid #000;
+            overflow: hidden;
+        }
+        
+        .editor-panel, .preview-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .editor-panel {
+            border-right: 2px solid #000;
+        }
+        
+        .panel-header {
+            background: #000;
+            color: #fff;
+            padding: 12px 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* 编辑器文本域 */
+        .editor-textarea {
+            flex: 1;
+            border: none;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            resize: none;
+            outline: none;
+            background: #fff;
+            overflow-y: auto;
+        }
+        
+        .editor-textarea::-webkit-scrollbar,
+        .preview-content::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .editor-textarea::-webkit-scrollbar-track,
+        .preview-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .editor-textarea::-webkit-scrollbar-thumb,
+        .preview-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+        
+        .editor-textarea::-webkit-scrollbar-thumb:hover,
+        .preview-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #f8f8f8;
+            border-bottom: 2px solid #000;
+        }
+        
+        .toolbar button {
+            padding: 6px 12px;
+            border: 2px solid #000;
+            background: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .toolbar button:hover {
+            background: #000;
+            color: #fff;
+        }
+        
+        .toolbar .separator {
+            width: 2px;
+            background: #ddd;
+            margin: 0 4px;
+        }
+        
+        /* 预览区域 */
+        .preview-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fff;
+        }
+        
+        /* Markdown 样式 */
+        .preview-content h1, .preview-content h2, .preview-content h3,
+        .preview-content h4, .preview-content h5, .preview-content h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+            line-height: 1.3;
+        }
+        
+        .preview-content h1 { 
+            font-size: 2em; 
+            border-bottom: 3px solid #000; 
+            padding-bottom: 0.3em; 
+        }
+        
+        .preview-content h2 { 
+            font-size: 1.5em; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 0.3em; 
+        }
+        
+        .preview-content h3 { font-size: 1.25em; }
+        .preview-content h4 { font-size: 1em; }
+        .preview-content h5 { font-size: 0.875em; }
+        .preview-content h6 { font-size: 0.85em; color: #666; }
+        
+        .preview-content p {
+            margin-bottom: 1em;
+            line-height: 1.7;
+        }
+        
+        .preview-content code {
+            background: #f5f5f5;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 90%;
+            color: #d63384;
+            border: 1px solid #ddd;
+        }
+        
+        .preview-content pre {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 1em 0;
+            border: 2px solid #000;
+        }
+        
+        .preview-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+            border: none;
+        }
+        
+        .preview-content blockquote {
+            border-left: 4px solid #000;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .preview-content ul, .preview-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+        
+        .preview-content li {
+            margin: 0.5em 0;
+            line-height: 1.6;
+        }
+        
+        .preview-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+            border: 2px solid #000;
+        }
+        
+        .preview-content th, .preview-content td {
+            border: 1px solid #000;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        
+        .preview-content th {
+            background: #000;
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .preview-content img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #000;
+            margin: 1em 0;
+        }
+        
+        .preview-content a {
+            color: #0066cc;
+            text-decoration: none;
+            border-bottom: 1px solid #0066cc;
+        }
+        
+        .preview-content a:hover {
+            background: #0066cc;
+            color: #fff;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+            
+            .editor-panel {
+                border-right: none;
+                border-bottom: 2px solid #000;
+            }
+            
+            .toolbar {
+                gap: 4px;
+                padding: 8px;
+            }
+            
+            .toolbar button {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- 顶部操作栏 -->
+        <div class="flex items-center gap-4 mb-6 flex-wrap">
+            <button onclick="history.back()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition">
+                ← 返回
+            </button>
+            <input 
+                type="text" 
+                id="titleInput" 
+                placeholder="请输入文章标题..."
+                class="flex-1 min-w-[300px] px-4 py-3 border-2 border-black text-xl font-bold focus:outline-none"
+            >
+            <button onclick="saveDraft()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition">
+                💾 草稿
+            </button>
+            <button onclick="publishArticle()" class="px-6 py-3 bg-black text-white font-bold hover:bg-gray-800 transition">
+                ✓ 发布
+            </button>
+        </div>
+
+        <!-- 编辑器容器 -->
+        <div class="editor-container">
+            <!-- 左侧编辑区 -->
+            <div class="editor-panel">
+                <div class="panel-header">
+                    <span>✍️ Markdown 编辑</span>
+                    <span class="text-sm font-normal" id="charCount">0 字</span>
+                </div>
+                
+                <div class="toolbar">
+                    <button onclick="insertText('**', '**', '粗体')" title="粗体 (Ctrl+B)"><strong>B</strong></button>
+                    <button onclick="insertText('*', '*', '斜体')" title="斜体 (Ctrl+I)"><em>I</em></button>
+                    <button onclick="insertText('~~', '~~', '删除线')" title="删除线"><s>S</s></button>
+                    <div class="separator"></div>
+                    <button onclick="insertHeading(1)" title="一级标题">H1</button>
+                    <button onclick="insertHeading(2)" title="二级标题">H2</button>
+                    <button onclick="insertHeading(3)" title="三级标题">H3</button>
+                    <div class="separator"></div>
+                    <button onclick="insertLink()" title="链接 (Ctrl+K)">🔗</button>
+                    <button onclick="insertImage()" title="图片 (支持上传/粘贴/拖拽)">🖼️</button>
+                    <button onclick="insertCode()" title="代码块">&lt;/&gt;</button>
+                    <button onclick="insertQuote()" title="引用">"</button>
+                    <div class="separator"></div>
+                    <button onclick="insertList('ul')" title="无序列表">•</button>
+                    <button onclick="insertList('ol')" title="有序列表">1.</button>
+                    <button onclick="insertTable()" title="表格">📊</button>
+                    <div class="separator"></div>
+                    <button onclick="clearEditor()" title="清空" style="border-color: #dc2626; color: #dc2626;">🗑️</button>
+                </div>
+                
+                <textarea 
+                    class="editor-textarea" 
+                    id="markdown-editor" 
+                    placeholder="# 开始写作...
+
+在这里输入 Markdown 内容，右侧实时预览
+
+## 快捷键
+- **Ctrl+B**: 粗体
+- **Ctrl+I**: 斜体  
+- **Ctrl+K**: 链接
+- **Ctrl+S**: 保存草稿
+
+## 图片上传
+- 点击 🖼️ 按钮上传
+- 直接粘贴图片 (Ctrl+V)
+- 拖拽图片到编辑器
+
+## 示例
+
+**粗体文本** *斜体文本* ~~删除线~~
+
+> 这是一个引用
+
+\`\`\`javascript
+console.log('Hello, Markdown!');
+\`\`\`
+
+- 列表项 1
+- 列表项 2
+
+| 表头1 | 表头2 |
+| --- | --- |
+| 内容1 | 内容2 |
+"></textarea>
+            </div>
+
+            <!-- 右侧预览区 -->
+            <div class="preview-panel">
+                <div class="panel-header">
+                    <span>👁️ 实时预览</span>
+                </div>
+                <div class="preview-content" id="markdown-preview"></div>
+            </div>
+        </div>
+
+        <!-- 文章设置 -->
+        <div class="mt-6 border-2 border-black">
+            <div class="bg-black text-white px-6 py-3 font-bold">⚙️ 文章设置</div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block font-bold mb-2">📁 分类</label>
+                        <select id="categorySelect" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                            <option value="">选择分类</option>
+                            <option value="技术笔记">技术笔记</option>
+                            <option value="代码片段">代码片段</option>
+                            <option value="项目经验">项目经验</option>
+                            <option value="工具推荐">工具推荐</option>
+                        </select>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block font-bold mb-2">🏷️ 标签（多选）</label>
+                        <div id="selectedTags" class="flex flex-wrap gap-2 mb-2 min-h-[42px] p-2 border-2 border-dashed border-gray-300 bg-gray-50"></div>
+                        <div class="border-2 border-black p-3 max-h-48 overflow-y-auto bg-white">
+                            <div id="availableTags" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <label class="block font-bold mb-2">📝 文章摘要</label>
+                    <textarea 
+                        id="summaryInput" 
+                        placeholder="简短描述文章内容（选填）..."
+                        class="w-full px-4 py-2 border-2 border-black focus:outline-none resize-none"
+                        rows="3"
+                        maxlength="200"
+                    ></textarea>
+                    <div class="text-sm text-gray-500 mt-1" id="summaryLength">0/200</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let articleId = null;
+        let isEdit = false;
+        let selectedTags = [];
+        
+        const editor = document.getElementById('markdown-editor');
+        const preview = document.getElementById('markdown-preview');
+        const charCount = document.getElementById('charCount');
+        
+        // 常用标签
+        const commonTags = {
+            '前端': ['JavaScript', 'TypeScript', 'Vue', 'React', 'HTML', 'CSS'],
+            '后端': ['Java', 'Spring Boot', 'Python', 'Node.js', 'Go'],
+            '数据库': ['MySQL', 'Redis', 'MongoDB'],
+            '工具': ['Git', 'Docker', 'Linux']
+        };
+        
+        window.onload = function() {
+            if (!requireLogin()) return;
+            
+            articleId = getUrlParam('id');
+            isEdit = !!articleId;
+            
+            if (isEdit) {
+                loadArticle();
+            }
+            
+            renderAvailableTags();
+            updatePreview();
+            updateCharCount();
+            
+            // 摘要字数统计
+            document.getElementById('summaryInput').addEventListener('input', (e) => {
+                document.getElementById('summaryLength').textContent = `${e.target.value.length}/200`;
+            });
+        };
+        
+        // 实时更新预览
+        editor.addEventListener('input', function() {
+            updatePreview();
+            updateCharCount();
+        });
+        
+        // 粘贴图片上传
+        editor.addEventListener('paste', async function(e) {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    e.preventDefault();
+                    const file = items[i].getAsFile();
+                    await uploadImageFile(file);
+                    break;
+                }
+            }
+        });
+        
+        // 拖拽上传图片
+        editor.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            editor.style.background = '#f0f0f0';
+        });
+        
+        editor.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            editor.style.background = '#fff';
+        });
+        
+        editor.addEventListener('drop', async function(e) {
+            e.preventDefault();
+            editor.style.background = '#fff';
+            
+            const files = e.dataTransfer.files;
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) {
+                    await uploadImageFile(files[i]);
+                }
+            }
+        });
+        
+        // 更新预览
+        function updatePreview() {
+            const markdownText = editor.value;
+            const htmlContent = marked.parse(markdownText);
+            preview.innerHTML = htmlContent;
+            
+            // 语法高亮
+            if (window.hljs) {
+                preview.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+        }
+        
+        // 更新字符计数
+        function updateCharCount() {
+            const count = editor.value.length;
+            charCount.textContent = `${count} 字`;
+        }
+        
+        // 插入文本
+        function insertText(before, after, placeholder) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+            const textToInsert = selectedText || placeholder;
+            const newText = before + textToInsert + after;
+            
+            editor.setRangeText(newText, start, end, 'end');
+            editor.focus();
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 插入标题
+        function insertHeading(level) {
+            const start = editor.selectionStart;
+            const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+            const prefix = '#'.repeat(level) + ' ';
+            
+            editor.setRangeText(prefix, lineStart, lineStart, 'end');
+            editor.focus();
+            updatePreview();
+        }
+        
+        // 插入链接
+        function insertLink() {
+            showModal('插入链接', `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block font-bold mb-2">链接地址</label>
+                        <input type="text" id="linkUrl" placeholder="https://example.com" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">链接文字</label>
+                        <input type="text" id="linkText" placeholder="链接文字" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                    </div>
+                </div>
+            `, () => {
+                const url = document.getElementById('linkUrl').value.trim();
+                const text = document.getElementById('linkText').value.trim();
+                if (url) {
+                    insertText('[', `](${url})`, text || url);
+                }
+            });
+        }
+        
+        // 插入图片
+        function insertImage() {
+            showModal('插入图片', `
+                <div class="space-y-4">
+                    <div class="border-2 border-dashed border-gray-300 p-6 text-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer" onclick="document.getElementById('imageFileInput').click()">
+                        <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                        <div class="text-4xl mb-2">📤</div>
+                        <div class="font-bold mb-1">点击上传图片</div>
+                        <div class="text-sm text-gray-500">或拖拽图片到此处</div>
+                        <div class="text-xs text-gray-400 mt-2">支持 JPG, PNG, GIF (最大 5MB)</div>
+                    </div>
+                    <div class="text-center text-gray-500">或</div>
+                    <div>
+                        <label class="block font-bold mb-2">图片地址</label>
+                        <input type="text" id="imageUrl" placeholder="https://example.com/image.jpg" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">图片描述</label>
+                        <input type="text" id="imageAlt" placeholder="图片描述" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                    </div>
+                    <div id="uploadProgress" class="hidden">
+                        <div class="w-full bg-gray-200 h-2 rounded">
+                            <div id="uploadProgressBar" class="bg-black h-2 rounded transition-all" style="width: 0%"></div>
+                        </div>
+                        <div class="text-sm text-gray-600 text-center mt-2">上传中...</div>
+                    </div>
+                </div>
+            `, () => {
+                const url = document.getElementById('imageUrl').value.trim();
+                const alt = document.getElementById('imageAlt').value.trim();
+                if (url) {
+                    insertText('![', `](${url})`, alt || '图片');
+                }
+            });
+        }
+        
+        // 处理图片上传（从文件选择器）
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            await uploadImageToModal(file, event);
+        }
+        
+        // 上传图片到模态框
+        async function uploadImageToModal(file, event) {
+            // 检查文件类型
+            if (!file.type.startsWith('image/')) {
+                showMessage('请选择图片文件', 'error');
+                return;
+            }
+            
+            // 检查文件大小 (5MB)
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showMessage('图片大小不能超过 5MB', 'error');
+                if (event) event.target.value = '';
+                return;
+            }
+            
+            // 显示上传进度
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadProgressBar');
+            if (progressDiv) progressDiv.classList.remove('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await axios.post(`${API_BASE_URL}/file/upload-image`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        if (progressBar) {
+                            progressBar.style.width = percentCompleted + '%';
+                        }
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    const imageUrl = response.data.data.url;
+                    // 自动填充图片地址
+                    const urlInput = document.getElementById('imageUrl');
+                    const altInput = document.getElementById('imageAlt');
+                    if (urlInput) urlInput.value = imageUrl;
+                    if (altInput && !altInput.value) altInput.value = file.name.replace(/\.[^/.]+$/, '');
+                    
+                    showMessage('图片上传成功！', 'success');
+                } else {
+                    showMessage(response.data.message || '上传失败', 'error');
+                }
+            } catch (error) {
+                console.error('上传失败:', error);
+                showMessage('图片上传失败', 'error');
+            } finally {
+                if (progressDiv) progressDiv.classList.add('hidden');
+                if (progressBar) progressBar.style.width = '0%';
+                if (event) event.target.value = '';
+            }
+        }
+        
+        // 上传图片文件（粘贴/拖拽）
+        async function uploadImageFile(file) {
+            // 检查文件类型
+            if (!file.type.startsWith('image/')) {
+                showMessage('只能上传图片文件', 'error');
+                return;
+            }
+            
+            // 检查文件大小 (5MB)
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showMessage('图片大小不能超过 5MB', 'error');
+                return;
+            }
+            
+            showMessage('正在上传图片...', 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await axios.post(`${API_BASE_URL}/file/upload-image`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    const imageUrl = response.data.data.url;
+                    const imageName = file.name.replace(/\.[^/.]+$/, '');
+                    // 直接插入到编辑器
+                    insertText('![', `](${imageUrl})`, imageName);
+                    showMessage('图片上传成功！', 'success');
+                } else {
+                    showMessage(response.data.message || '上传失败', 'error');
+                }
+            } catch (error) {
+                console.error('上传失败:', error);
+                showMessage('图片上传失败', 'error');
+            }
+        }
+        
+        // 插入代码块
+        function insertCode() {
+            showModal('插入代码块', `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block font-bold mb-2">选择语言</label>
+                        <select id="codeLang" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                            <option value="javascript">JavaScript</option>
+                            <option value="java">Java</option>
+                            <option value="python">Python</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="sql">SQL</option>
+                            <option value="bash">Bash</option>
+                            <option value="json">JSON</option>
+                            <option value="plaintext">纯文本</option>
+                        </select>
+                    </div>
+                </div>
+            `, () => {
+                const lang = document.getElementById('codeLang').value;
+                insertText(`\`\`\`${lang}\n`, '\n\`\`\`', '// 在这里输入代码');
+            });
+        }
+        
+        // 显示模态框
+        function showModal(title, content, onConfirm) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white border-4 border-black p-6 max-w-md w-full mx-4">
+                    <h3 class="text-xl font-bold mb-4">${title}</h3>
+                    <div class="mb-6">${content}</div>
+                    <div class="flex gap-3 justify-end">
+                        <button onclick="this.closest('.fixed').remove()" class="px-6 py-2 border-2 border-black font-bold hover:bg-gray-100">
+                            取消
+                        </button>
+                        <button id="modalConfirm" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                            确定
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // 聚焦第一个输入框
+            setTimeout(() => {
+                const firstInput = modal.querySelector('input, select');
+                if (firstInput) firstInput.focus();
+            }, 100);
+            
+            // 确定按钮事件
+            modal.querySelector('#modalConfirm').onclick = () => {
+                onConfirm();
+                modal.remove();
+            };
+            
+            // ESC 键关闭
+            modal.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                }
+            });
+            
+            // 点击背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+        
+        // 插入引用
+        function insertQuote() {
+            const start = editor.selectionStart;
+            const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+            editor.setRangeText('> ', lineStart, lineStart, 'end');
+            editor.focus();
+            updatePreview();
+        }
+        
+        // 插入列表
+        function insertList(type) {
+            const start = editor.selectionStart;
+            const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+            const prefix = type === 'ul' ? '- ' : '1. ';
+            editor.setRangeText(prefix, lineStart, lineStart, 'end');
+            editor.focus();
+            updatePreview();
+        }
+        
+        // 插入表格
+        function insertTable() {
+            const table = '\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容1 | 内容2 | 内容3 |\n';
+            insertText('', '', table);
+        }
+        
+        // 清空编辑器
+        function clearEditor() {
+            if (confirm('确定要清空所有内容吗？')) {
+                editor.value = '';
+                updatePreview();
+                updateCharCount();
+            }
+        }
+        
+        // 键盘快捷键
+        editor.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'b':
+                        e.preventDefault();
+                        insertText('**', '**', '粗体');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        insertText('*', '*', '斜体');
+                        break;
+                    case 'k':
+                        e.preventDefault();
+                        insertLink();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        saveDraft();
+                        break;
+                }
+            }
+        });
+        
+        // 渲染可选标签
+        function renderAvailableTags() {
+            const container = document.getElementById('availableTags');
+            let html = '';
+            
+            for (const [category, tags] of Object.entries(commonTags)) {
+                html += `<div class="w-full mb-2">
+                    <div class="text-xs font-bold text-gray-600 mb-1">${category}</div>
+                    <div class="flex flex-wrap gap-2">`;
+                
+                tags.forEach(tag => {
+                    const isSelected = selectedTags.includes(tag);
+                    html += `<button type="button" class="px-3 py-1 border border-black text-sm hover:bg-black hover:text-white transition ${isSelected ? 'bg-black text-white' : 'bg-white'}" onclick="toggleTag('${tag}')">${tag}</button>`;
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 切换标签
+        function toggleTag(tag) {
+            const index = selectedTags.indexOf(tag);
+            if (index > -1) {
+                selectedTags.splice(index, 1);
+            } else {
+                selectedTags.push(tag);
+            }
+            renderSelectedTags();
+            renderAvailableTags();
+        }
+        
+        // 渲染已选标签
+        function renderSelectedTags() {
+            const container = document.getElementById('selectedTags');
+            if (selectedTags.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 text-sm">未选择标签</span>';
+            } else {
+                container.innerHTML = selectedTags.map(tag => 
+                    `<button type="button" class="px-3 py-1 bg-black text-white text-sm font-medium hover:bg-gray-700 transition" onclick="toggleTag('${tag}')">${tag} ×</button>`
+                ).join('');
+            }
+        }
+        
+        // 加载文章
+        async function loadArticle() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/article/detail`, {
+                    params: { id: articleId }
+                });
+                
+                if (response.data.code === 200) {
+                    const article = response.data.data;
+                    document.getElementById('titleInput').value = article.title || '';
+                    editor.value = article.content || '';
+                    document.getElementById('categorySelect').value = article.category || '';
+                    document.getElementById('summaryInput').value = article.summary || '';
+                    
+                    if (article.tags) {
+                        selectedTags = article.tags.split(',').map(t => t.trim()).filter(t => t);
+                        renderSelectedTags();
+                        renderAvailableTags();
+                    }
+                    
+                    updatePreview();
+                    updateCharCount();
+                }
+            } catch (error) {
+                showMessage('加载文章失败', 'error');
+            }
+        }
+        
+        // 保存草稿
+        async function saveDraft() {
+            await saveArticle(0);
+        }
+        
+        // 发布文章
+        async function publishArticle() {
+            await saveArticle(1);
+        }
+        
+        // 保存文章
+        async function saveArticle(status) {
+            const title = document.getElementById('titleInput').value.trim();
+            const content = editor.value.trim();
+            const category = document.getElementById('categorySelect').value;
+            const tags = selectedTags.join(',');
+            const summary = document.getElementById('summaryInput').value.trim();
+            
+            if (!title) {
+                showMessage('请输入文章标题', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('请输入文章内容', 'error');
+                return;
+            }
+            
+            try {
+                const data = {
+                    title,
+                    content,
+                    category,
+                    tags,
+                    summary,
+                    status
+                };
+                
+                if (isEdit) {
+                    data.id = articleId;
+                }
+                
+                const response = await axios.post(`${API_BASE_URL}/article`, data);
+                
+                if (response.data.code === 200) {
+                    showMessage(status === 0 ? '草稿保存成功' : '文章发布成功！', 'success');
+                    setTimeout(() => {
+                        window.location.href = status === 1 ? 'index.html' : 'profile.html';
+                    }, 1500);
+                }
+            } catch (error) {
+                showMessage('保存失败', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

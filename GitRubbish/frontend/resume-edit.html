@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑简历 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-3xl font-bold">编辑简历</h1>
+            <div class="flex gap-3">
+                <button onclick="window.location.href='profile.html'" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    返回
+                </button>
+                <button onclick="previewResume()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    预览
+                </button>
+                <button onclick="saveResume()" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                    保存
+                </button>
+            </div>
+        </div>
+
+        <form id="resumeForm" class="space-y-6">
+            <!-- 基本信息 -->
+            <div class="bg-white p-6 border-2 border-black">
+                <h2 class="text-xl font-bold mb-4">基本信息</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold mb-2">姓名</label>
+                        <input type="text" id="name" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="张三">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">职位/标题</label>
+                        <input type="text" id="title" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="全栈工程师">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">邮箱</label>
+                        <input type="email" id="email" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="example@email.com">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">电话</label>
+                        <input type="tel" id="phone" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="138****8888">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">所在地</label>
+                        <input type="text" id="location" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="北京">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">GitHub</label>
+                        <input type="text" id="github" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="https://github.com/username">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block font-bold mb-2">个人简介</label>
+                    <textarea id="summary" rows="4" class="w-full px-4 py-2 border-2 border-black focus:outline-none" placeholder="简单介绍一下自己..."></textarea>
+                </div>
+            </div>
+
+            <!-- 技能 -->
+            <div class="bg-white p-6 border-2 border-black">
+                <h2 class="text-xl font-bold mb-4">技能</h2>
+                <div id="skillsList" class="space-y-2 mb-4"></div>
+                <button type="button" onclick="addSkill()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    + 添加技能
+                </button>
+            </div>
+
+            <!-- 工作经历 -->
+            <div class="bg-white p-6 border-2 border-black">
+                <h2 class="text-xl font-bold mb-4">工作经历</h2>
+                <div id="experienceList" class="space-y-4 mb-4"></div>
+                <button type="button" onclick="addExperience()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    + 添加工作经历
+                </button>
+            </div>
+
+            <!-- 教育经历 -->
+            <div class="bg-white p-6 border-2 border-black">
+                <h2 class="text-xl font-bold mb-4">教育经历</h2>
+                <div id="educationList" class="space-y-4 mb-4"></div>
+                <button type="button" onclick="addEducation()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    + 添加教育经历
+                </button>
+            </div>
+
+            <!-- 项目经历 -->
+            <div class="bg-white p-6 border-2 border-black">
+                <h2 class="text-xl font-bold mb-4">项目经历</h2>
+                <div id="projectsList" class="space-y-4 mb-4"></div>
+                <button type="button" onclick="addProject()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    + 添加项目
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let skills = [];
+        let experiences = [];
+        let educations = [];
+        let projects = [];
+
+        window.onload = () => {
+            if (!requireLogin()) return;
+            loadResume();
+        };
+
+        async function loadResume() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/resume/my`);
+                if (response.data.code === 200 && response.data.data) {
+                    const resume = response.data.data;
+                    document.getElementById('name').value = resume.name || '';
+                    document.getElementById('title').value = resume.title || '';
+                    document.getElementById('email').value = resume.email || '';
+                    document.getElementById('phone').value = resume.phone || '';
+                    document.getElementById('location').value = resume.location || '';
+                    document.getElementById('github').value = resume.github || '';
+                    document.getElementById('summary').value = resume.summary || '';
+                    
+                    skills = resume.skills ? JSON.parse(resume.skills) : [];
+                    experiences = resume.experience ? JSON.parse(resume.experience) : [];
+                    educations = resume.education ? JSON.parse(resume.education) : [];
+                    projects = resume.projects ? JSON.parse(resume.projects) : [];
+                    
+                    renderSkills();
+                    renderExperiences();
+                    renderEducations();
+                    renderProjects();
+                }
+            } catch (error) {
+                console.error('加载简历失败', error);
+            }
+        }
+
+        function addSkill() {
+            skills.push('');
+            renderSkills();
+        }
+
+        function renderSkills() {
+            const container = document.getElementById('skillsList');
+            container.innerHTML = skills.map((skill, index) => `
+                <div class="flex gap-2">
+                    <input type="text" value="${skill}" onchange="skills[${index}] = this.value" 
+                           class="flex-1 px-4 py-2 border-2 border-black focus:outline-none" placeholder="例如: JavaScript, Python">
+                    <button type="button" onclick="removeSkill(${index})" class="px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function removeSkill(index) {
+            skills.splice(index, 1);
+            renderSkills();
+        }
+
+        function addExperience() {
+            experiences.push({ company: '', position: '', period: '', description: '' });
+            renderExperiences();
+        }
+
+        function renderExperiences() {
+            const container = document.getElementById('experienceList');
+            container.innerHTML = experiences.map((exp, index) => `
+                <div class="p-4 border-2 border-gray-300">
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <input type="text" value="${exp.company}" onchange="experiences[${index}].company = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="公司名称">
+                        <input type="text" value="${exp.position}" onchange="experiences[${index}].position = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="职位">
+                    </div>
+                    <input type="text" value="${exp.period}" onchange="experiences[${index}].period = this.value" 
+                           class="w-full px-4 py-2 border-2 border-black focus:outline-none mb-2" placeholder="时间段 (例如: 2020.01 - 2022.12)">
+                    <textarea onchange="experiences[${index}].description = this.value" 
+                              class="w-full px-4 py-2 border-2 border-black focus:outline-none" rows="3" placeholder="工作描述">${exp.description}</textarea>
+                    <button type="button" onclick="removeExperience(${index})" class="mt-2 px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function removeExperience(index) {
+            experiences.splice(index, 1);
+            renderExperiences();
+        }
+
+        function addEducation() {
+            educations.push({ school: '', degree: '', major: '', period: '' });
+            renderEducations();
+        }
+
+        function renderEducations() {
+            const container = document.getElementById('educationList');
+            container.innerHTML = educations.map((edu, index) => `
+                <div class="p-4 border-2 border-gray-300">
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <input type="text" value="${edu.school}" onchange="educations[${index}].school = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="学校名称">
+                        <input type="text" value="${edu.degree}" onchange="educations[${index}].degree = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="学历 (例如: 本科)">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" value="${edu.major}" onchange="educations[${index}].major = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="专业">
+                        <input type="text" value="${edu.period}" onchange="educations[${index}].period = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="时间段">
+                    </div>
+                    <button type="button" onclick="removeEducation(${index})" class="mt-2 px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function removeEducation(index) {
+            educations.splice(index, 1);
+            renderEducations();
+        }
+
+        function addProject() {
+            projects.push({ name: '', role: '', period: '', description: '', tech: '' });
+            renderProjects();
+        }
+
+        function renderProjects() {
+            const container = document.getElementById('projectsList');
+            container.innerHTML = projects.map((proj, index) => `
+                <div class="p-4 border-2 border-gray-300">
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <input type="text" value="${proj.name}" onchange="projects[${index}].name = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="项目名称">
+                        <input type="text" value="${proj.role}" onchange="projects[${index}].role = this.value" 
+                               class="px-4 py-2 border-2 border-black focus:outline-none" placeholder="担任角色">
+                    </div>
+                    <input type="text" value="${proj.period}" onchange="projects[${index}].period = this.value" 
+                           class="w-full px-4 py-2 border-2 border-black focus:outline-none mb-2" placeholder="时间段">
+                    <input type="text" value="${proj.tech}" onchange="projects[${index}].tech = this.value" 
+                           class="w-full px-4 py-2 border-2 border-black focus:outline-none mb-2" placeholder="技术栈">
+                    <textarea onchange="projects[${index}].description = this.value" 
+                              class="w-full px-4 py-2 border-2 border-black focus:outline-none" rows="3" placeholder="项目描述">${proj.description}</textarea>
+                    <button type="button" onclick="removeProject(${index})" class="mt-2 px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function removeProject(index) {
+            projects.splice(index, 1);
+            renderProjects();
+        }
+
+        async function saveResume() {
+            const resume = {
+                name: document.getElementById('name').value,
+                title: document.getElementById('title').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                location: document.getElementById('location').value,
+                github: document.getElementById('github').value,
+                summary: document.getElementById('summary').value,
+                skills: JSON.stringify(skills.filter(s => s)),
+                experience: JSON.stringify(experiences),
+                education: JSON.stringify(educations),
+                projects: JSON.stringify(projects)
+            };
+
+            try {
+                const response = await axios.post(`${API_BASE_URL}/resume`, resume);
+                if (response.data.code === 200) {
+                    showMessage('保存成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'resume-view.html';
+                    }, 1000);
+                }
+            } catch (error) {
+                showMessage('保存失败', 'error');
+            }
+        }
+
+        function previewResume() {
+            window.open('resume-view.html', '_blank');
+        }
+    </script>
+</body>
+</html>

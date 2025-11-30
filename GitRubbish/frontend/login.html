@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* 背景图片 */
+        .bg-image {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('picture/003.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: brightness(0.7);
+            z-index: -2;
+        }
+        
+        /* 渐变遮罩 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,107,107,0.3), rgba(255,193,7,0.2), rgba(76,175,80,0.1));
+            z-index: -1;
+        }
+        
+        /* 飘落的枫叶 */
+        .leaf {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+            opacity: 0.8;
+            animation: fall linear infinite;
+            z-index: 0;
+        }
+        
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0.3;
+            }
+        }
+        
+        /* 登录框样式 */
+        .login-container {
+            position: relative;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo-glow {
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% {
+                filter: drop-shadow(0 0 10px rgba(255, 107, 107, 0.5));
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(255, 107, 107, 0.8));
+            }
+        }
+        
+        /* 水波纹效果 */
+        .ripple {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 107, 107, 0.3) 50%, transparent 100%);
+            pointer-events: none;
+            animation: ripple-animation 1.5s ease-out;
+            z-index: 1;
+        }
+        
+        @keyframes ripple-animation {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+        
+        /* 粒子特效 */
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            animation: float-up linear infinite;
+        }
+        
+        @keyframes float-up {
+            0% {
+                transform: translateY(0) translateX(0) scale(1);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(var(--drift)) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        /* 闪烁星星 */
+        .star {
+            position: fixed;
+            width: 3px;
+            height: 3px;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            animation: twinkle 3s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+        
+        @keyframes twinkle {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <!-- 背景图片 -->
+    <div class="bg-image"></div>
+    <div class="overlay"></div>
+    
+    <!-- 飘落的枫叶 -->
+    <div id="leaves"></div>
+    
+    <!-- 粒子容器 -->
+    <div id="particles"></div>
+    
+    <!-- 星星容器 -->
+    <div id="stars"></div>
+    
+    <div class="w-full max-w-md">
+        <!-- Logo区域 -->
+        <div class="text-center mb-8">
+            <div class="inline-block mb-4 logo-glow">
+                <img src="picture/002.jpg" alt="GitRubbish Logo" class="w-24 h-24 mx-auto rounded-full border-4 border-white shadow-lg" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                <div class="p-4 bg-gradient-to-br from-red-500 to-orange-500 text-white hidden rounded-full">
+                    <h1 class="text-5xl font-bold">GR</h1>
+                </div>
+            </div>
+            <h2 class="text-4xl font-bold mb-2 text-white drop-shadow-lg">GitRubbish</h2>
+            <p class="text-white text-lg drop-shadow">轻量极简博客平台</p>
+        </div>
+        
+        <div class="login-container p-8 border-2 border-white/30">
+        
+            <form id="loginForm" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-bold mb-2 text-gray-800">用户名</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        placeholder="请输入用户名"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200 transition"
+                        required
+                    >
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold mb-2 text-gray-800">密码</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        placeholder="请输入密码"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200 transition"
+                        required
+                    >
+                </div>
+                
+                <button 
+                    type="submit" 
+                    class="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-3 font-bold rounded-lg hover:from-red-600 hover:to-orange-600 transform hover:scale-105 transition-all shadow-lg"
+                >
+                    登录
+                </button>
+            </form>
+            
+            <div class="mt-6 pt-6 border-t-2 border-gray-200 text-center">
+                <p class="text-gray-700">
+                    还没有账号？
+                    <a href="register.html" class="text-red-500 font-bold hover:text-red-600 hover:underline ml-1">立即注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await axios.post(`${API_BASE_URL}/user/login`, {
+                    username,
+                    password
+                });
+                
+                if (response.data.code === 200) {
+                    // 保存JWT令牌和用户信息到 localStorage
+                    const token = response.data.data.token;
+                    const userInfo = response.data.data.user;
+                    
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    
+                    console.log('Token saved:', token);
+                    console.log('UserInfo saved:', userInfo);
+                    
+                    showMessage('登录成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    showMessage(response.data.message || '登录失败', 'error');
+                }
+            } catch (error) {
+                showMessage(error.response?.data?.message || '登录失败，请检查网络', 'error');
+            }
+        });
+        
+        // 创建飘落的枫叶
+        function createLeaves() {
+            const leavesContainer = document.getElementById('leaves');
+            const leafCount = 15;
+            
+            for (let i = 0; i < leafCount; i++) {
+                const leaf = document.createElement('div');
+                leaf.className = 'leaf';
+                leaf.style.left = Math.random() * 100 + '%';
+                leaf.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                leaf.style.animationDelay = Math.random() * 5 + 's';
+                leaf.style.width = (Math.random() * 20 + 20) + 'px';
+                leaf.style.height = leaf.style.width;
+                
+                // 随机颜色
+                const colors = [
+                    'linear-gradient(135deg, #ff6b6b, #ff8e53)',
+                    'linear-gradient(135deg, #ffa500, #ff6347)',
+                    'linear-gradient(135deg, #ff4500, #dc143c)',
+                    'linear-gradient(135deg, #ff7f50, #ff6b6b)'
+                ];
+                leaf.style.background = colors[Math.floor(Math.random() * colors.length)];
+                
+                leavesContainer.appendChild(leaf);
+            }
+        }
+        
+        createLeaves();
+        createParticles();
+        createStars();
+        
+        // 鼠标点击水波纹效果
+        document.addEventListener('click', function(e) {
+            createRipple(e.clientX, e.clientY);
+        });
+        
+        // 鼠标移动水波纹效果（节流）
+        let lastRippleTime = 0;
+        document.addEventListener('mousemove', function(e) {
+            const now = Date.now();
+            if (now - lastRippleTime > 100) { // 每100ms最多创建一个水波纹
+                createRipple(e.clientX, e.clientY, 0.5);
+                lastRippleTime = now;
+            }
+        });
+        
+        function createRipple(x, y, scale = 1) {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = (x - 150 * scale) + 'px';
+            ripple.style.top = (y - 150 * scale) + 'px';
+            ripple.style.width = '0';
+            ripple.style.height = '0';
+            
+            if (scale !== 1) {
+                ripple.style.transform = `scale(${scale})`;
+            }
+            
+            document.body.appendChild(ripple);
+            
+            // 动画结束后移除元素
+            setTimeout(() => {
+                ripple.remove();
+            }, 1500);
+        }
+        
+        // 创建漂浮粒子
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // 随机大小
+                const size = Math.random() * 8 + 3;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                
+                // 随机位置
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.bottom = '-20px';
+                
+                // 随机颜色
+                const colors = [
+                    'rgba(255, 107, 107, 0.6)',
+                    'rgba(255, 193, 7, 0.6)',
+                    'rgba(255, 255, 255, 0.8)',
+                    'rgba(255, 140, 83, 0.6)',
+                    'rgba(255, 127, 80, 0.6)'
+                ];
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.boxShadow = `0 0 ${size * 2}px ${particle.style.background}`;
+                
+                // 随机动画时长和延迟
+                particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                
+                // 随机漂移
+                const drift = (Math.random() - 0.5) * 200;
+                particle.style.setProperty('--drift', drift + 'px');
+                
+                particlesContainer.appendChild(particle);
+            }
+        }
+        
+        // 创建闪烁星星
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const starCount = 50;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // 随机位置
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                
+                // 随机大小
+                const size = Math.random() * 3 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                
+                // 随机动画延迟
+                star.style.animationDelay = Math.random() * 3 + 's';
+                star.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                
+                starsContainer.appendChild(star);
+            }
+        }
+    </script>
+</body>
+</html>

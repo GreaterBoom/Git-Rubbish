@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑文章 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            font-weight: bold;
+            margin: 1rem 0 0.5rem;
+        }
+        .markdown-body h1 { font-size: 1.5rem; }
+        .markdown-body h2 { font-size: 1.25rem; }
+        .markdown-body h3 { font-size: 1.1rem; }
+        .markdown-body p { margin: 0.5rem 0; line-height: 1.6; }
+        .markdown-body code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
+        .markdown-body pre { background: #f5f5f5; padding: 0.75rem; border-left: 3px solid #000; overflow-x: auto; margin: 0.75rem 0; }
+        .markdown-body pre code { background: none; padding: 0; }
+    </style>
+</head>
+<body class="bg-white">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- 顶部操作栏 -->
+        <div class="flex items-center gap-4 mb-6">
+            <button onclick="history.back()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white" title="返回上一页">
+                ← 返回
+            </button>
+            <input 
+                type="text" 
+                id="titleInput" 
+                placeholder="请输入文章标题..."
+                class="flex-1 px-4 py-3 border-2 border-black text-2xl font-bold focus:outline-none"
+            >
+            <button onclick="showPreview()" class="px-6 py-3 border-2 border-blue-500 text-blue-500 font-bold hover:bg-blue-500 hover:text-white">
+                👁️ 预览
+            </button>
+            <button onclick="saveDraft()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white">
+                保存草稿
+            </button>
+            <button onclick="publishArticle()" class="px-6 py-3 bg-black text-white font-bold hover:bg-gray-800">
+                发布文章
+            </button>
+        </div>
+
+        <!-- Markdown 工具栏 -->
+        <div class="border-2 border-black bg-gray-50 p-3 mb-4">
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button onclick="insertMarkdown('**', '**', '粗体文字')" class="px-3 py-1 border-2 border-black font-bold hover:bg-black hover:text-white transition" title="粗体 (Ctrl+B)">
+                    <strong>B</strong>
+                </button>
+                <button onclick="insertMarkdown('*', '*', '斜体文字')" class="px-3 py-1 border-2 border-black italic hover:bg-black hover:text-white transition" title="斜体 (Ctrl+I)">
+                    <em>I</em>
+                </button>
+                <button onclick="insertMarkdown('~~', '~~', '删除线')" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="删除线">
+                    <s>S</s>
+                </button>
+                <span class="border-l-2 border-black mx-1"></span>
+                <button onclick="insertHeading(1)" class="px-3 py-1 border-2 border-black font-bold hover:bg-black hover:text-white transition" title="一级标题">
+                    H1
+                </button>
+                <button onclick="insertHeading(2)" class="px-3 py-1 border-2 border-black font-bold hover:bg-black hover:text-white transition" title="二级标题">
+                    H2
+                </button>
+                <button onclick="insertHeading(3)" class="px-3 py-1 border-2 border-black font-bold hover:bg-black hover:text-white transition" title="三级标题">
+                    H3
+                </button>
+                <span class="border-l-2 border-black mx-1"></span>
+                <button onclick="showLinkInput()" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="插入链接 (Ctrl+K)">
+                    🔗 链接
+                </button>
+                <button onclick="insertCode()" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="代码块">
+                    &lt;/&gt;
+                </button>
+                <button onclick="insertQuote()" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="引用">
+                    "
+                </button>
+                <span class="border-l-2 border-black mx-1"></span>
+                <button onclick="insertList('ul')" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="无序列表">
+                    • 列表
+                </button>
+                <button onclick="insertList('ol')" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="有序列表">
+                    1. 列表
+                </button>
+                <button onclick="insertTable()" class="px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition" title="插入表格">
+                    📊
+                </button>
+                <span class="border-l-2 border-black mx-1"></span>
+                <button onclick="clearEditor()" class="px-3 py-1 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition" title="清空内容">
+                    🗑️ 清空
+                </button>
+                <span class="ml-auto text-sm text-gray-600">提示: Ctrl+Z 撤销 | Ctrl+Y 重做</span>
+            </div>
+            
+            <!-- 链接输入框 -->
+            <div id="linkInputPanel" class="hidden border-t-2 border-black pt-3">
+                <div class="flex gap-2 items-center">
+                    <input type="text" id="linkText" placeholder="链接文字" class="px-3 py-1 border-2 border-black flex-1">
+                    <input type="text" id="linkUrl" placeholder="https://" class="px-3 py-1 border-2 border-black flex-1">
+                    <button onclick="confirmLink()" class="px-4 py-1 bg-black text-white font-bold hover:bg-gray-800">
+                        插入
+                    </button>
+                    <button onclick="hideLinkInput()" class="px-4 py-1 border-2 border-black hover:bg-black hover:text-white">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 编辑器区域 -->
+        <div class="grid grid-cols-2 gap-4 mb-6" style="height: 600px;">
+            <!-- 左侧编辑区 -->
+            <div class="border-2 border-black flex flex-col">
+                <div class="bg-gray-100 px-4 py-2 border-b-2 border-black font-bold flex items-center justify-between">
+                    <span>Markdown 编辑器</span>
+                    <span class="text-sm text-gray-600" id="charCount">0 字</span>
+                </div>
+                <textarea 
+                    id="contentEditor" 
+                    placeholder="开始写作... 支持 Markdown 语法&#10;&#10;快捷键：&#10;Ctrl+B: 粗体&#10;Ctrl+I: 斜体&#10;Ctrl+K: 插入链接"
+                    class="flex-1 p-4 focus:outline-none resize-none font-mono"
+                ></textarea>
+            </div>
+
+            <!-- 右侧预览区 -->
+            <div class="border-2 border-black overflow-y-auto flex flex-col">
+                <div class="bg-gray-100 px-4 py-2 border-b-2 border-black font-bold">实时预览</div>
+                <div id="preview" class="markdown-body p-4 flex-1"></div>
+            </div>
+        </div>
+
+        <!-- 文章设置 -->
+        <div class="border-2 border-black p-6">
+            <h3 class="text-lg font-bold mb-4">文章设置</h3>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block font-bold mb-2">分类</label>
+                    <select id="categorySelect" class="w-full px-4 py-2 border-2 border-black focus:outline-none">
+                        <option value="">选择分类</option>
+                        <option value="技术笔记">技术笔记</option>
+                        <option value="代码片段">代码片段</option>
+                        <option value="项目经验">项目经验</option>
+                        <option value="工具推荐">工具推荐</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block font-bold mb-2">标签（点击选择）</label>
+                    <div id="selectedTags" class="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 border-2 border-dashed border-gray-300 rounded"></div>
+                    <div class="border-2 border-black p-3 max-h-48 overflow-y-auto">
+                        <div id="availableTags" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="text-sm text-gray-500 mt-1">点击标签添加/移除，已选标签显示在上方</div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block font-bold mb-2">文章摘要</label>
+                <textarea 
+                    id="summaryInput" 
+                    placeholder="简短描述文章内容..."
+                    class="w-full px-4 py-2 border-2 border-black focus:outline-none resize-none"
+                    rows="3"
+                    maxlength="200"
+                ></textarea>
+                <div class="text-sm text-gray-500 mt-1" id="summaryLength">0/200</div>
+            </div>
+            
+            <div class="mt-4">
+                <label class="block font-bold mb-2">📎 附件上传</label>
+                <div class="border-2 border-dashed border-gray-300 rounded p-4 text-center">
+                    <input 
+                        type="file" 
+                        id="attachmentInput" 
+                        accept=".zip,.rar,.7z,.tar,.gz,.java,.py,.js,.html,.css,.txt,.md,.json,.xml,.yml"
+                        class="hidden"
+                        onchange="handleFileSelect(event)"
+                    >
+                    <button 
+                        type="button"
+                        onclick="document.getElementById('attachmentInput').click()"
+                        class="px-6 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition"
+                    >
+                        选择文件
+                    </button>
+                    <p class="text-sm text-gray-500 mt-2">支持 .zip, .rar, .7z 等压缩包及代码文件，最大 50MB</p>
+                    
+                    <div id="attachmentInfo" class="hidden mt-4 p-3 bg-gray-50 border-2 border-black">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">📦</span>
+                                <div class="text-left">
+                                    <p class="font-bold" id="attachmentName"></p>
+                                    <p class="text-sm text-gray-600" id="attachmentSize"></p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onclick="removeAttachment()"
+                                class="px-3 py-1 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition"
+                            >
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="uploadProgress" class="hidden mt-4">
+                        <div class="w-full bg-gray-200 h-2">
+                            <div id="progressBar" class="bg-black h-2 transition-all" style="width: 0%"></div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">上传中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl max-h-[90vh] flex flex-col border-4 border-black">
+            <!-- 预览头部 -->
+            <div class="flex items-center justify-between p-4 border-b-2 border-black">
+                <h2 class="text-2xl font-bold">文章预览</h2>
+                <button onclick="closePreview()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    ✕ 关闭
+                </button>
+            </div>
+            
+            <!-- 预览内容 -->
+            <div class="flex-1 overflow-y-auto p-8">
+                <!-- 文章标题 -->
+                <h1 id="previewTitle" class="text-4xl font-bold mb-4"></h1>
+                
+                <!-- 文章元信息 -->
+                <div class="flex items-center gap-4 text-sm text-gray-600 mb-6 pb-6 border-b-2 border-gray-200">
+                    <span id="previewCategory"></span>
+                    <span id="previewTags"></span>
+                    <span id="previewDate"></span>
+                </div>
+                
+                <!-- 文章摘要 -->
+                <div id="previewSummary" class="bg-gray-50 border-l-4 border-black p-4 mb-6 italic"></div>
+                
+                <!-- 文章内容 -->
+                <div id="previewContent" class="markdown-body"></div>
+                
+                <!-- 附件信息 -->
+                <div id="previewAttachment" class="hidden mt-6 p-4 bg-gray-50 border-2 border-black">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">📦</span>
+                        <div>
+                            <p class="font-bold">附件</p>
+                            <p id="previewAttachmentName" class="text-sm text-gray-600"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 预览底部操作 -->
+            <div class="flex items-center justify-between p-4 border-t-2 border-black bg-gray-50">
+                <button onclick="closePreview()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    继续编辑
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="closePreview(); saveDraft()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white">
+                        保存草稿
+                    </button>
+                    <button onclick="closePreview(); publishArticle()" class="px-6 py-3 bg-black text-white font-bold hover:bg-gray-800">
+                        发布文章
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let articleId = null;
+        let isEdit = false;
+        let selectedTags = [];
+        let attachmentData = null; // 存储上传的附件信息
+        
+        // 常用标签建议（按分类组织）
+        const commonTags = {
+            '前端开发': ['JavaScript', 'TypeScript', 'Vue', 'React', 'Angular', 'HTML', 'CSS', 'Tailwind', 'Bootstrap', 'Webpack', 'Vite'],
+            '后端开发': ['Node.js', 'Express', 'Nest.js', 'Java', 'Spring Boot', 'Spring Cloud', 'MyBatis', 'Python', 'Django', 'Flask', 'FastAPI', 'Go', 'Gin', 'Rust'],
+            '数据库': ['MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'SQL', 'NoSQL'],
+            '运维部署': ['Docker', 'Kubernetes', 'CI/CD', 'Linux', 'Nginx', 'Jenkins'],
+            '嵌入式': ['嵌入式', 'STM32', 'Arduino', 'ESP32', 'ESP8266', '51单片机', 'AVR', 'ARM', 'Cortex-M', 'FreeRTOS', 'RT-Thread', 'HAL库', 'Keil', 'IAR'],
+            '物联网': ['物联网', 'IoT', 'MQTT', 'CoAP', 'LoRaWAN', 'NB-IoT', 'Zigbee', 'Bluetooth', '智能家居', '传感器', '边缘计算'],
+            '通用技能': ['Git', '算法', '数据结构', '设计模式', '微服务', '性能优化', '安全', '测试', '前端', '后端', '全栈']
+        };
+
+        // 配置marked
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
+        window.onload = () => {
+            if (!requireLogin()) return;
+            
+            articleId = getUrlParam('id');
+            isEdit = !!articleId;
+            
+            if (isEdit) {
+                loadArticle();
+            }
+            
+            // 实时预览和字数统计
+            const editor = document.getElementById('contentEditor');
+            editor.addEventListener('input', () => {
+                updatePreview();
+                updateCharCount();
+            });
+            
+            // 摘要字数统计
+            document.getElementById('summaryInput').addEventListener('input', (e) => {
+                document.getElementById('summaryLength').textContent = `${e.target.value.length}/200`;
+            });
+            
+            // 键盘快捷键
+            editor.addEventListener('keydown', handleKeyboardShortcuts);
+            
+            // 初始化标签选择器
+            renderAvailableTags();
+        };
+
+        // 加载文章（编辑模式）
+        async function loadArticle() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/article/detail`, {
+                    params: { id: articleId }
+                });
+                
+                if (response.data.code === 200) {
+                    const article = response.data.data;
+                    document.getElementById('titleInput').value = article.title || '';
+                    document.getElementById('contentEditor').value = article.content || '';
+                    document.getElementById('categorySelect').value = article.category || '';
+                    document.getElementById('summaryInput').value = article.summary || '';
+                    
+                    // 加载标签
+                    if (article.tags) {
+                        selectedTags = article.tags.split(',').map(t => t.trim()).filter(t => t);
+                        renderSelectedTags();
+                    }
+                    
+                    // 加载附件信息
+                    if (article.attachmentUrl && article.attachmentName) {
+                        attachmentData = {
+                            url: article.attachmentUrl,
+                            originalFilename: article.attachmentName
+                        };
+                        showAttachmentInfo(article.attachmentName, 0);
+                        document.getElementById('attachmentSize').textContent = '已上传';
+                    }
+                    
+                    updatePreview();
+                }
+            } catch (error) {
+                showMessage('加载文章失败', 'error');
+            }
+        }
+        
+        // 渲染可选标签
+        function renderAvailableTags() {
+            const container = document.getElementById('availableTags');
+            let html = '';
+            
+            for (const [category, tags] of Object.entries(commonTags)) {
+                html += `
+                    <div class="w-full mb-3">
+                        <div class="text-xs font-bold text-gray-600 mb-2">${category}</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${tags.map(tag => `
+                                <span class="cursor-pointer px-3 py-1 border-2 border-black text-sm hover:bg-gray-100 transition ${selectedTags.includes(tag) ? 'bg-black text-white' : 'bg-white'}" 
+                                      onclick="toggleTag('${tag}')">
+                                    ${tag}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 切换标签选择
+        function toggleTag(tag) {
+            const index = selectedTags.indexOf(tag);
+            if (index > -1) {
+                selectedTags.splice(index, 1);
+            } else {
+                selectedTags.push(tag);
+            }
+            renderSelectedTags();
+            renderAvailableTags();
+        }
+        
+        // 渲染已选标签
+        function renderSelectedTags() {
+            const container = document.getElementById('selectedTags');
+            if (selectedTags.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 text-sm">未选择标签</span>';
+            } else {
+                container.innerHTML = selectedTags.map(tag => `
+                    <span class="px-3 py-1 bg-black text-white text-sm font-medium cursor-pointer hover:bg-gray-700 transition" onclick="toggleTag('${tag}')">
+                        ${tag} ×
+                    </span>
+                `).join('');
+            }
+        }
+
+        // 更新预览
+        function updatePreview() {
+            const content = document.getElementById('contentEditor').value;
+            const preview = document.getElementById('preview');
+            
+            if (content.trim()) {
+                preview.innerHTML = marked.parse(content);
+            } else {
+                preview.innerHTML = '<p class="text-gray-400">预览区域</p>';
+            }
+        }
+        
+        // 更新字数统计
+        function updateCharCount() {
+            const content = document.getElementById('contentEditor').value;
+            const count = content.length;
+            document.getElementById('charCount').textContent = `${count} 字`;
+        }
+        
+        // 插入Markdown语法（支持撤销）
+        function insertMarkdown(before, after, placeholder) {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+            const text = selectedText || placeholder;
+            const newText = before + text + after;
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, newText);
+            
+            // 选中插入的文本（不包括语法符号）
+            if (!selectedText) {
+                editor.setSelectionRange(start + before.length, start + before.length + text.length);
+            }
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 插入标题
+        function insertHeading(level) {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+            const prefix = '#'.repeat(level) + ' ';
+            const text = selectedText || '标题文字';
+            const newText = prefix + text;
+            
+            document.execCommand('insertText', false, newText);
+            
+            if (!selectedText) {
+                editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+            }
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 显示链接输入面板
+        function showLinkInput() {
+            const panel = document.getElementById('linkInputPanel');
+            const editor = document.getElementById('contentEditor');
+            const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            
+            document.getElementById('linkText').value = selectedText || '';
+            document.getElementById('linkUrl').value = '';
+            panel.classList.remove('hidden');
+            document.getElementById('linkText').focus();
+        }
+        
+        // 隐藏链接输入面板
+        function hideLinkInput() {
+            document.getElementById('linkInputPanel').classList.add('hidden');
+            document.getElementById('linkText').value = '';
+            document.getElementById('linkUrl').value = '';
+        }
+        
+        // 确认插入链接
+        function confirmLink() {
+            const text = document.getElementById('linkText').value.trim() || '链接文字';
+            const url = document.getElementById('linkUrl').value.trim() || 'https://';
+            
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            const linkMarkdown = `[${text}](${url})`;
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, linkMarkdown);
+            
+            updatePreview();
+            updateCharCount();
+            hideLinkInput();
+        }
+        
+        // 插入代码块
+        function insertCode() {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const text = '```javascript\n// 在这里写代码\nconsole.log("Hello World");\n```\n';
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, text);
+            
+            // 将光标定位到代码语言位置
+            editor.setSelectionRange(start + 3, start + 13);
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 插入引用
+        function insertQuote() {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+            const text = selectedText || '引用内容';
+            const newText = '> ' + text;
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, newText);
+            
+            // 如果没有选中文本，选中默认文本
+            if (!selectedText) {
+                editor.setSelectionRange(start + 2, start + 2 + text.length);
+            }
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 插入列表
+        function insertList(type) {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const prefix = type === 'ul' ? '- ' : '1. ';
+            const text = prefix + '列表项 1\n' + prefix + '列表项 2\n' + prefix + '列表项 3\n';
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, text);
+            
+            // 选中第一个列表项
+            editor.setSelectionRange(start + prefix.length, start + prefix.length + 5);
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 插入表格
+        function insertTable() {
+            const editor = document.getElementById('contentEditor');
+            editor.focus();
+            
+            const start = editor.selectionStart;
+            const table = '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容1 | 内容2 | 内容3 |\n| 内容4 | 内容5 | 内容6 |\n';
+            
+            // 使用 execCommand 支持撤销
+            document.execCommand('insertText', false, table);
+            
+            // 选中第一个单元格内容
+            editor.setSelectionRange(start + 2, start + 4);
+            
+            updatePreview();
+            updateCharCount();
+        }
+        
+        // 清空编辑器
+        function clearEditor() {
+            if (confirm('确定要清空所有内容吗？此操作不可恢复！')) {
+                document.getElementById('contentEditor').value = '';
+                updatePreview();
+                updateCharCount();
+            }
+        }
+        
+        // 键盘快捷键
+        function handleKeyboardShortcuts(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'b':
+                        e.preventDefault();
+                        insertMarkdown('**', '**', '粗体文字');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        insertMarkdown('*', '*', '斜体文字');
+                        break;
+                    case 'k':
+                        e.preventDefault();
+                        insertLink();
+                        break;
+                }
+            }
+        }
+
+        // 保存草稿
+        async function saveDraft() {
+            await saveArticle(0);
+        }
+
+        // 发布文章
+        async function publishArticle() {
+            await saveArticle(1);
+        }
+
+        // 保存文章
+        async function saveArticle(status) {
+            const title = document.getElementById('titleInput').value.trim();
+            const content = document.getElementById('contentEditor').value.trim();
+            const category = document.getElementById('categorySelect').value;
+            const tags = selectedTags.join(','); // 使用选中的标签数组
+            const summary = document.getElementById('summaryInput').value.trim();
+            
+            if (!title) {
+                showMessage('请输入文章标题', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('请输入文章内容', 'error');
+                return;
+            }
+            
+            try {
+                const data = {
+                    title,
+                    content,
+                    category,
+                    tags,
+                    summary,
+                    status
+                };
+                
+                // 添加附件信息
+                if (attachmentData) {
+                    data.attachmentUrl = attachmentData.url;
+                    data.attachmentName = attachmentData.originalFilename;
+                }
+                
+                if (isEdit) {
+                    data.id = articleId;
+                }
+                
+                const response = await axios.post(`${API_BASE_URL}/article`, data);
+                
+                if (response.data.code === 200) {
+                    showMessage(status === 0 ? '草稿保存成功' : '文章发布成功！🎉', 'success');
+                    setTimeout(() => {
+                        if (status === 1) {
+                            // 发布后跳转到首页
+                            window.location.href = 'index.html';
+                        } else {
+                            // 保存草稿后跳转到个人中心
+                            window.location.href = 'profile.html';
+                        }
+                    }, 1500);
+                }
+            } catch (error) {
+                showMessage('保存失败', 'error');
+            }
+        }
+        
+        // 处理文件选择
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 验证文件大小 (50MB)
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showMessage('文件大小不能超过 50MB', 'error');
+                event.target.value = '';
+                return;
+            }
+            
+            // 显示上传进度
+            document.getElementById('uploadProgress').classList.remove('hidden');
+            document.getElementById('attachmentInfo').classList.add('hidden');
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await axios.post(`${API_BASE_URL}/file/upload`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        document.getElementById('progressBar').style.width = percentCompleted + '%';
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    attachmentData = response.data.data;
+                    showAttachmentInfo(file.name, file.size);
+                    showMessage('文件上传成功', 'success');
+                } else {
+                    showMessage(response.data.message || '上传失败', 'error');
+                }
+            } catch (error) {
+                console.error('上传失败:', error);
+                showMessage('文件上传失败', 'error');
+            } finally {
+                document.getElementById('uploadProgress').classList.add('hidden');
+                document.getElementById('progressBar').style.width = '0%';
+                event.target.value = '';
+            }
+        }
+        
+        // 显示附件信息
+        function showAttachmentInfo(name, size) {
+            document.getElementById('attachmentName').textContent = name;
+            document.getElementById('attachmentSize').textContent = formatFileSize(size);
+            document.getElementById('attachmentInfo').classList.remove('hidden');
+        }
+        
+        // 移除附件
+        function removeAttachment() {
+            if (confirm('确定要删除附件吗？')) {
+                attachmentData = null;
+                document.getElementById('attachmentInfo').classList.add('hidden');
+                document.getElementById('attachmentInput').value = '';
+                showMessage('附件已移除', 'success');
+            }
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // 显示预览
+        function showPreview() {
+            const title = document.getElementById('titleInput').value.trim();
+            const content = document.getElementById('contentEditor').value.trim();
+            const category = document.getElementById('categorySelect').value;
+            const tags = selectedTags.join(', ');
+            const summary = document.getElementById('summaryInput').value.trim();
+            
+            // 验证
+            if (!title) {
+                showMessage('请输入文章标题', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('请输入文章内容', 'error');
+                return;
+            }
+            
+            // 设置预览内容
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewCategory').textContent = category ? `📁 ${category}` : '';
+            document.getElementById('previewTags').textContent = tags ? `🏷️ ${tags}` : '';
+            document.getElementById('previewDate').textContent = `📅 ${new Date().toLocaleDateString('zh-CN')}`;
+            
+            // 设置摘要
+            if (summary) {
+                document.getElementById('previewSummary').textContent = summary;
+                document.getElementById('previewSummary').classList.remove('hidden');
+            } else {
+                document.getElementById('previewSummary').classList.add('hidden');
+            }
+            
+            // 渲染 Markdown 内容
+            document.getElementById('previewContent').innerHTML = marked.parse(content);
+            
+            // 显示附件信息
+            if (attachmentData) {
+                document.getElementById('previewAttachmentName').textContent = attachmentData.originalFilename;
+                document.getElementById('previewAttachment').classList.remove('hidden');
+            } else {
+                document.getElementById('previewAttachment').classList.add('hidden');
+            }
+            
+            // 显示模态框
+            document.getElementById('previewModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭预览
+        function closePreview() {
+            document.getElementById('previewModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // ESC 键关闭预览
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePreview();
+            }
+        });
+    </script>
+</body>
+</html>

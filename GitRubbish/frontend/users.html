@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>兄弟们 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航 -->
+    <header class="border-b-2 border-black sticky top-0 bg-white z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="history.back()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition md:hidden" title="返回上一页">
+                    ←
+                </button>
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
+                    <img src="picture/002.jpg" alt="GitRubbish Logo" class="w-10 h-10" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    <div class="w-10 h-10 bg-black text-white hidden items-center justify-center font-bold text-lg">
+                        GR
+                    </div>
+                    <h1 class="text-2xl font-bold">GitRubbish</h1>
+                </div>
+            </div>
+            
+            <nav class="hidden md:flex items-center gap-2">
+                <a href="index.html" class="font-bold px-3 py-2 hover:bg-gray-100 transition text-sm">首页</a>
+                <a href="chat.html" class="font-bold px-3 py-2 hover:bg-gray-100 transition text-sm">聊天</a>
+                <a href="users.html" class="font-bold px-3 py-2 bg-black text-white transition text-sm">社区成员</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- 页面标题 -->
+        <div class="text-center mb-8">
+            <div class="text-6xl mb-4">👥</div>
+            <h1 class="text-4xl font-bold mb-2">兄弟们</h1>
+            <p class="text-gray-600">GitRubbish 社区成员</p>
+        </div>
+
+        <!-- 用户列表 -->
+        <div id="userList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 用户卡片将动态加载 -->
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loading" class="text-center py-12">
+            <div class="text-6xl mb-4 animate-bounce">👤</div>
+            <p class="text-lg font-bold">加载中...</p>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        window.onload = () => {
+            loadUsers();
+        };
+
+        async function loadUsers() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/user/list`);
+                
+                document.getElementById('loading').classList.add('hidden');
+                
+                if (response.data.code === 200) {
+                    const users = response.data.data;
+                    renderUsers(users);
+                } else {
+                    showMessage('加载用户列表失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                document.getElementById('loading').classList.add('hidden');
+                showMessage('加载用户列表失败', 'error');
+            }
+        }
+
+        function renderUsers(users) {
+            const userList = document.getElementById('userList');
+            
+            if (users.length === 0) {
+                userList.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-gray-500">
+                        <div class="text-6xl mb-4">😢</div>
+                        <p class="text-lg">还没有用户注册</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            userList.innerHTML = users.map(user => `
+                <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-transform hover:shadow-none cursor-pointer" onclick="viewUserProfile(${user.id})">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0">
+                            ${(user.nickname || user.username || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-lg truncate">${user.nickname || user.username}</h3>
+                            <p class="text-sm text-gray-600 truncate">@${user.username}</p>
+                        </div>
+                    </div>
+                    ${user.bio ? `
+                        <p class="text-sm text-gray-700 line-clamp-2 mb-3">${escapeHtml(user.bio)}</p>
+                    ` : ''}
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>ID: ${user.id}</span>
+                        <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            在线
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function viewUserProfile(userId) {
+            const currentUser = getCurrentUser();
+            if (userId === currentUser?.id) {
+                window.location.href = 'profile.html';
+            } else {
+                window.location.href = `user-profile.html?userId=${userId}`;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

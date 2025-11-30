@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; min-height: 100vh; }
+        
+        /* 动态流体渐变背景 */
+        .animated-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); z-index: -2; }
+        
+        /* 流体形状 */
+        .blob { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.6; animation: float 20s ease-in-out infinite; will-change: transform; }
+        .blob-1 { width: 500px; height: 500px; background: linear-gradient(135deg, #667eea 0%, #4facfe 100%); top: -10%; left: -10%; animation-delay: 0s; }
+        .blob-2 { width: 600px; height: 600px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); bottom: -15%; right: -10%; animation-delay: -5s; }
+        .blob-3 { width: 400px; height: 400px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); top: 50%; right: -5%; animation-delay: -10s; }
+        
+        @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } }
+        
+        /* 注册容器 */
+        .register-container { position: relative; z-index: 10; backdrop-filter: blur(20px) saturate(180%); background: rgba(255, 255, 255, 0.95); border-radius: 24px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); transition: transform 0.3s ease, box-shadow 0.3s ease; max-height: 90vh; overflow-y: auto; }
+        .register-container:hover { transform: translateY(-5px); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15); }
+        .register-container::-webkit-scrollbar { width: 6px; }
+        .register-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 10px; }
+        .register-container::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.3); border-radius: 10px; }
+        
+        /* Logo样式 */
+        .logo-circle { width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); transition: transform 0.3s ease; }
+        .logo-circle:hover { transform: scale(1.05) rotate(5deg); }
+        .logo-text { color: white; font-size: 2rem; font-weight: bold; }
+        
+        /* 输入框样式 */
+        input[type="text"], input[type="password"] { transition: all 0.3s ease; background: rgba(255, 255, 255, 0.9); }
+        input[type="text"]:focus, input[type="password"]:focus { background: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2); }
+        
+        /* 按钮样式 */
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .btn-primary::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent); transition: left 0.5s ease; }
+        .btn-primary:hover::before { left: 100%; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        
+        /* 链接样式 */
+        a { color: #667eea; transition: color 0.3s ease; }
+        a:hover { color: #764ba2; }
+        
+        /* 标题样式 */
+        .welcome-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
+        
+        /* 响应式 */
+        @media (max-width: 640px) { .register-container { margin: 1rem; } .blob { filter: blur(60px); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <!-- 动态流体背景 -->
+    <div class="animated-bg"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    
+    <div class="w-full max-w-md">
+        <div class="register-container p-8">
+            <!-- Logo -->
+            <div class="logo-circle"><span class="logo-text">GR</span></div>
+            
+            <!-- 标题 -->
+            <h2 class="text-3xl font-bold text-center mb-2 welcome-title">Join us!</h2>
+            <p class="text-center text-gray-600 mb-8">创建你的 GitRubbish 账号</p>
+            
+            <form id="registerForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">用户名</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        placeholder="3-20个字符"
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition"
+                        required
+                        minlength="3"
+                        maxlength="20"
+                    >
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">密码</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        placeholder="至少6位"
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition"
+                        required
+                        minlength="6"
+                    >
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">确认密码</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        placeholder="再次输入密码"
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition"
+                        required
+                    >
+                </div>
+                
+                <button 
+                    type="submit" 
+                    class="w-full btn-primary text-white py-3.5 font-semibold rounded-xl shadow-lg mt-6"
+                >
+                    注册
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <p class="text-gray-600 text-sm">
+                    已有账号？
+                    <a href="login.html" class="font-semibold">立即登录</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // 验证密码一致性
+            if (password !== confirmPassword) {
+                showMessage('两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            try {
+                const response = await axios.post(`${API_BASE_URL}/user/register`, {
+                    username,
+                    password
+                });
+                
+                if (response.data.code === 200) {
+                    showMessage('注册成功，请登录', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
+                } else {
+                    showMessage(response.data.message || '注册失败', 'error');
+                }
+            } catch (error) {
+                showMessage(error.response?.data?.message || '注册失败，请检查网络', 'error');
+            }
+        });
+        
+
+    </script>
+</body>
+</html>

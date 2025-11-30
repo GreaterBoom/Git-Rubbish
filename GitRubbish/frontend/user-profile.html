@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户主页 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航 -->
+    <header class="border-b-2 border-black sticky top-0 bg-white z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="history.back()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white" title="返回上一页">
+                    ← 返回
+                </button>
+                <h1 class="text-2xl font-bold cursor-pointer" onclick="window.location.href='index.html'">GitRubbish</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">返回首页</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <!-- 用户信息卡片 -->
+            <aside class="md:col-span-1">
+                <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div class="text-center mb-6">
+                        <div class="w-24 h-24 mx-auto border-2 border-black rounded-full flex items-center justify-center text-4xl font-bold bg-gray-100 mb-4" id="avatar">
+                            U
+                        </div>
+                        <h2 class="text-xl font-bold mb-1" id="userName">用户名</h2>
+                        <p class="text-gray-600 text-sm mb-2" id="userEmail">email@example.com</p>
+                        <p class="text-gray-500 text-sm px-2" id="userBio">暂无个人简介</p>
+                    </div>
+                    
+                    <button onclick="viewResume()" class="w-full px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white mb-6">
+                        📄 查看简历
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-4 pt-6 border-t-2 border-black">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold" id="articleCount">0</div>
+                            <div class="text-sm text-gray-600">文章</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold" id="viewCount">0</div>
+                            <div class="text-sm text-gray-600">浏览</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 文章列表 -->
+            <main class="md:col-span-3">
+                <!-- 贡献日历 -->
+                <div class="bg-white border-2 border-black p-6 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">📅 文章发布活动</h3>
+                        <div class="flex items-center gap-2 text-xs text-gray-600">
+                            <span>少</span>
+                            <div class="w-2.5 h-2.5 bg-gray-100 border border-gray-300 rounded-sm"></div>
+                            <div class="w-2.5 h-2.5 bg-green-200 border border-gray-300 rounded-sm"></div>
+                            <div class="w-2.5 h-2.5 bg-green-400 border border-gray-300 rounded-sm"></div>
+                            <div class="w-2.5 h-2.5 bg-green-600 border border-gray-300 rounded-sm"></div>
+                            <div class="w-2.5 h-2.5 bg-green-800 border border-gray-300 rounded-sm"></div>
+                            <span>多</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <!-- 月份标签 -->
+                        <div class="flex mb-2">
+                            <div style="width: 28px;"></div>
+                            <div id="monthLabels" class="flex text-xs text-gray-600"></div>
+                        </div>
+                        <!-- 日历网格 -->
+                        <div class="flex">
+                            <!-- 星期标签 -->
+                            <div class="flex flex-col justify-around text-xs text-gray-600 pr-2" style="width: 28px;">
+                                <div style="height: 11px;"></div>
+                                <div style="height: 11px; line-height: 11px;">一</div>
+                                <div style="height: 11px;"></div>
+                                <div style="height: 11px; line-height: 11px;">三</div>
+                                <div style="height: 11px;"></div>
+                                <div style="height: 11px; line-height: 11px;">五</div>
+                                <div style="height: 11px;"></div>
+                            </div>
+                            <!-- 贡献格子 -->
+                            <div id="calendarGrid" class="flex" style="gap: 3px;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between mb-6 pb-4 border-b-2 border-black">
+                    <h2 class="text-2xl font-bold">TA的文章</h2>
+                </div>
+                
+                <div id="articleList" class="space-y-4"></div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let userId = null;
+        let userArticles = [];
+
+        window.onload = () => {
+            userId = getUrlParam('userId');
+            if (!userId) {
+                showMessage('用户不存在', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                return;
+            }
+            
+            loadUserInfo();
+            loadUserArticles();
+        };
+        
+        // 查看简历
+        function viewResume() {
+            window.location.href = `resume-view.html?userId=${userId}`;
+        }
+
+        // 加载用户信息
+        async function loadUserInfo() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/user/list`);
+                
+                if (response.data.code === 200) {
+                    const users = response.data.data;
+                    const user = users.find(u => u.id == userId);
+                    
+                    if (user) {
+                        document.getElementById('avatar').textContent = (user.nickname || user.username).charAt(0).toUpperCase();
+                        document.getElementById('userName').textContent = user.nickname || user.username;
+                        document.getElementById('userEmail').textContent = user.email || '未设置邮箱';
+                        document.getElementById('userBio').textContent = user.bio || '暂无个人简介';
+                    } else {
+                        showMessage('用户不存在', 'error');
+                    }
+                }
+            } catch (error) {
+                showMessage('加载用户信息失败', 'error');
+            }
+        }
+
+        // 加载用户文章
+        async function loadUserArticles() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/article/list`, {
+                    params: {
+                        page: 1,
+                        size: 100
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    // 过滤出该用户的已发布文章
+                    userArticles = (response.data.data.records || []).filter(a => a.userId == userId && a.status === 1);
+                    
+                    // 更新统计
+                    document.getElementById('articleCount').textContent = userArticles.length;
+                    const totalViews = userArticles.reduce((sum, a) => sum + (a.viewCount || 0), 0);
+                    document.getElementById('viewCount').textContent = totalViews;
+                    
+                    renderArticles();
+                    renderContributionCalendar();
+                }
+            } catch (error) {
+                showMessage('加载文章失败', 'error');
+            }
+        }
+        
+        // 渲染贡献日历
+        function renderContributionCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            const monthLabels = document.getElementById('monthLabels');
+            const today = new Date();
+            const oneYearAgo = new Date(today);
+            oneYearAgo.setFullYear(today.getFullYear() - 1);
+            
+            // 统计每天的文章数
+            const contributionMap = {};
+            userArticles.forEach(article => {
+                const date = new Date(article.createTime);
+                // 使用本地日期格式化，避免时区问题
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+                contributionMap[dateStr] = (contributionMap[dateStr] || 0) + 1;
+            });
+            
+            // 生成日历格子和月份标签
+            const weeks = [];
+            const monthPositions = new Map(); // 使用 Map 记录每个月第一次出现的周索引
+            let currentWeek = [];
+            let currentDate = new Date(oneYearAgo);
+            let weekIndex = 0;
+            
+            // 从一年前的周日开始
+            currentDate.setDate(currentDate.getDate() - currentDate.getDay());
+            
+            while (currentDate <= today) {
+                // 使用本地日期格式化
+                const year = currentDate.getFullYear();
+                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const day = String(currentDate.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+                const count = contributionMap[dateStr] || 0;
+                const level = count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count <= 4 ? 3 : 4;
+                const monthNum = currentDate.getMonth();
+                
+                // 记录每个月第一次出现的周索引（在周的开始位置）
+                if (!monthPositions.has(monthNum) && currentDate.getDay() === 0) {
+                    monthPositions.set(monthNum, weekIndex);
+                }
+                
+                currentWeek.push({
+                    date: dateStr,
+                    count: count,
+                    level: level
+                });
+                
+                if (currentWeek.length === 7) {
+                    weeks.push(currentWeek);
+                    currentWeek = [];
+                    weekIndex++;
+                }
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            if (currentWeek.length > 0) {
+                weeks.push(currentWeek);
+            }
+            
+            // 渲染月份标签
+            const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+            let monthLabelsHtml = '';
+            
+            weeks.forEach((week, index) => {
+                let hasMonth = false;
+                let monthName = '';
+                
+                // 检查这一周是否是某个月的开始
+                for (let [month, weekIdx] of monthPositions) {
+                    if (weekIdx === index) {
+                        hasMonth = true;
+                        monthName = monthNames[month];
+                        break;
+                    }
+                }
+                
+                if (hasMonth) {
+                    monthLabelsHtml += `<div style="width: 14px; margin-right: 3px; text-align: left; font-size: 11px; color: #666;">${monthName}</div>`;
+                } else {
+                    monthLabelsHtml += '<div style="width: 14px; margin-right: 3px;"></div>';
+                }
+            });
+            
+            monthLabels.innerHTML = monthLabelsHtml;
+            
+            // 渲染格子
+            const colors = [
+                'bg-gray-100',
+                'bg-green-200',
+                'bg-green-400',
+                'bg-green-600',
+                'bg-green-800'
+            ];
+            
+            calendarGrid.innerHTML = weeks.map(week => `
+                <div class="flex flex-col" style="gap: 3px;">
+                    ${week.map(day => `
+                        <div style="width: 11px; height: 11px;" class="${colors[day.level]} border border-gray-300 rounded-sm cursor-pointer hover:ring-1 hover:ring-black transition-all" 
+                             title="${day.date}: ${day.count} 篇文章">
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        // 渲染文章列表
+        function renderArticles() {
+            const articleList = document.getElementById('articleList');
+            
+            if (userArticles.length === 0) {
+                articleList.innerHTML = '<div class="text-center text-gray-500 py-12">暂无文章</div>';
+                return;
+            }
+            
+            articleList.innerHTML = userArticles.map(article => `
+                <div class="bg-white border-2 border-black p-6 cursor-pointer hover:translate-x-1 hover:translate-y-1 transition-transform shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none" 
+                     onclick="window.location.href='article-detail.html?id=${article.id}'">
+                    <h3 class="text-xl font-bold mb-2">${article.title}</h3>
+                    <p class="text-gray-600 mb-2">${article.summary || '暂无摘要'}</p>
+                    <div class="flex gap-4 text-sm text-gray-500">
+                        <span>📅 ${formatDate(article.createTime)}</span>
+                        <span>👁️ ${article.viewCount || 0}</span>
+                        <span>❤️ ${article.likeCount || 0}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

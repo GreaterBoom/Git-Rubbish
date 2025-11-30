@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的简历 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-3xl font-bold" id="pageTitle">我的简历</h1>
+            <div class="flex gap-3">
+                <button id="backBtn" onclick="goBack()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white">
+                    返回
+                </button>
+                <button id="editBtn" onclick="window.location.href='resume-edit.html'" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                    编辑简历
+                </button>
+            </div>
+        </div>
+
+        <div id="resumeContent" class="bg-white p-8 border-2 border-black">
+            <div class="text-center text-gray-500 py-12">
+                加载中...
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let userId = null;
+
+        let isOwnResume = false; // 标记是否是查看自己的简历
+
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = urlParams.get('userId');
+            
+            if (!userId) {
+                // 查看自己的简历
+                if (!requireLogin()) return;
+                const userInfo = getCurrentUser();
+                userId = userInfo.id;
+                isOwnResume = true;
+            } else {
+                // 查看他人简历
+                const userInfo = getCurrentUser();
+                isOwnResume = userInfo && userInfo.id == userId;
+                
+                if (!isOwnResume) {
+                    // 查看他人简历，隐藏编辑按钮，修改标题
+                    document.getElementById('editBtn').style.display = 'none';
+                    document.getElementById('pageTitle').textContent = 'TA的简历';
+                }
+            }
+            
+            loadResume();
+        };
+        
+        // 返回按钮逻辑
+        function goBack() {
+            if (isOwnResume) {
+                // 返回自己的个人主页
+                window.location.href = 'profile.html';
+            } else {
+                // 返回对方的个人主页
+                window.location.href = `user-profile.html?userId=${userId}`;
+            }
+        }
+
+        async function loadResume() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/resume?userId=${userId}`);
+                if (response.data.code === 200 && response.data.data) {
+                    renderResume(response.data.data);
+                } else {
+                    // 简历不存在
+                    if (isOwnResume) {
+                        // 自己的简历不存在，显示创建按钮
+                        document.getElementById('resumeContent').innerHTML = `
+                            <div class="text-center py-12">
+                                <p class="text-gray-500 mb-4">还没有创建简历</p>
+                                <button onclick="window.location.href='resume-edit.html'" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                                    创建简历
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // 他人简历不存在
+                        document.getElementById('resumeContent').innerHTML = `
+                            <div class="text-center py-12">
+                                <p class="text-gray-500">该用户还没有创建简历</p>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                document.getElementById('resumeContent').innerHTML = `
+                    <div class="text-center text-red-500 py-12">
+                        加载失败
+                    </div>
+                `;
+            }
+        }
+
+        function renderResume(resume) {
+            const skills = resume.skills ? JSON.parse(resume.skills) : [];
+            const experiences = resume.experience ? JSON.parse(resume.experience) : [];
+            const educations = resume.education ? JSON.parse(resume.education) : [];
+            const projects = resume.projects ? JSON.parse(resume.projects) : [];
+
+            let html = `
+                <!-- 基本信息 -->
+                <div class="text-center mb-8 pb-8 border-b-2 border-gray-200">
+                    <h1 class="text-4xl font-bold mb-2">${resume.name || '未填写'}</h1>
+                    <p class="text-xl text-gray-600 mb-4">${resume.title || '未填写职位'}</p>
+                    <div class="flex flex-wrap justify-center gap-4 text-sm">
+                        ${resume.email ? `<span>📧 ${resume.email}</span>` : ''}
+                        ${resume.phone ? `<span>📱 ${resume.phone}</span>` : ''}
+                        ${resume.location ? `<span>📍 ${resume.location}</span>` : ''}
+                        ${resume.github ? `<span><a href="${resume.github}" target="_blank" class="text-blue-600 hover:underline">🔗 GitHub</a></span>` : ''}
+                    </div>
+                </div>
+
+                <!-- 个人简介 -->
+                ${resume.summary ? `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-black"></span>
+                        个人简介
+                    </h2>
+                    <p class="text-gray-700 leading-relaxed">${resume.summary}</p>
+                </div>
+                ` : ''}
+
+                <!-- 技能 -->
+                ${skills.length > 0 ? `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-black"></span>
+                        技能
+                    </h2>
+                    <div class="flex flex-wrap gap-2">
+                        ${skills.map(skill => `<span class="px-4 py-2 bg-gray-100 border-2 border-black font-medium">${skill}</span>`).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- 工作经历 -->
+                ${experiences.length > 0 ? `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-black"></span>
+                        工作经历
+                    </h2>
+                    ${experiences.map(exp => `
+                        <div class="mb-6 pl-4 border-l-4 border-gray-300">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 class="text-xl font-bold">${exp.company}</h3>
+                                    <p class="text-gray-600">${exp.position}</p>
+                                </div>
+                                <span class="text-sm text-gray-500">${exp.period}</span>
+                            </div>
+                            <p class="text-gray-700 whitespace-pre-line">${exp.description}</p>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <!-- 教育经历 -->
+                ${educations.length > 0 ? `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-black"></span>
+                        教育经历
+                    </h2>
+                    ${educations.map(edu => `
+                        <div class="mb-4 pl-4 border-l-4 border-gray-300">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-bold">${edu.school}</h3>
+                                    <p class="text-gray-600">${edu.degree} · ${edu.major}</p>
+                                </div>
+                                <span class="text-sm text-gray-500">${edu.period}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <!-- 项目经历 -->
+                ${projects.length > 0 ? `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-black"></span>
+                        项目经历
+                    </h2>
+                    ${projects.map(proj => `
+                        <div class="mb-6 pl-4 border-l-4 border-gray-300">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 class="text-xl font-bold">${proj.name}</h3>
+                                    <p class="text-gray-600">${proj.role}</p>
+                                </div>
+                                <span class="text-sm text-gray-500">${proj.period}</span>
+                            </div>
+                            ${proj.tech ? `<p class="text-sm text-gray-600 mb-2"><strong>技术栈：</strong>${proj.tech}</p>` : ''}
+                            <p class="text-gray-700 whitespace-pre-line">${proj.description}</p>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+            `;
+
+            document.getElementById('resumeContent').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

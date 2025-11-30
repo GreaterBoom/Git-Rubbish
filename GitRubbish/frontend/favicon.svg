@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 黑色小猫头部 -->
+  <circle cx="50" cy="55" r="30" fill="#000"/>
+  
+  <!-- 左耳 -->
+  <path d="M 30 35 L 20 15 L 35 30 Z" fill="#000"/>
+  
+  <!-- 右耳 -->
+  <path d="M 70 35 L 80 15 L 65 30 Z" fill="#000"/>
+  
+  <!-- 左眼 -->
+  <circle cx="40" cy="50" r="4" fill="#fff"/>
+  <circle cx="41" cy="49" r="2" fill="#000"/>
+  
+  <!-- 右眼 -->
+  <circle cx="60" cy="50" r="4" fill="#fff"/>
+  <circle cx="61" cy="49" r="2" fill="#000"/>
+  
+  <!-- 鼻子 -->
+  <path d="M 50 58 L 47 62 L 53 62 Z" fill="#ff69b4"/>
+  
+  <!-- 嘴巴 -->
+  <path d="M 50 62 Q 45 65 40 63" stroke="#000" stroke-width="1.5" fill="none"/>
+  <path d="M 50 62 Q 55 65 60 63" stroke="#000" stroke-width="1.5" fill="none"/>
+  
+  <!-- 胡须左 -->
+  <line x1="25" y1="55" x2="35" y2="54" stroke="#000" stroke-width="1"/>
+  <line x1="25" y1="58" x2="35" y2="58" stroke="#000" stroke-width="1"/>
+  <line x1="25" y1="61" x2="35" y2="62" stroke="#000" stroke-width="1"/>
+  
+  <!-- 胡须右 -->
+  <line x1="75" y1="55" x2="65" y2="54" stroke="#000" stroke-width="1"/>
+  <line x1="75" y1="58" x2="65" y2="58" stroke="#000" stroke-width="1"/>
+  <line x1="75" y1="61" x2="65" y2="62" stroke="#000" stroke-width="1"/>
+</svg>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💣 惊喜！- GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .question {
+            font-size: 4rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.3);
+            margin-bottom: 3rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 1.5rem 3rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 4px solid black;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.3);
+        }
+        
+        button:hover {
+            transform: translate(3px, 3px);
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+        }
+        
+        .bomb {
+            position: absolute;
+            font-size: 3rem;
+            animation: fall 2s ease-in forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+        
+        .explosion {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20rem;
+            animation: explode 1s ease-out forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .final-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 101;
+        }
+        
+        .final-emoji {
+            font-size: 15rem;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+        }
+        
+        .final-text {
+            font-size: 3rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.3);
+            margin-top: 2rem;
+        }
+        
+        .back-button {
+            margin-top: 2rem;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: 3px solid black;
+            background: white;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.3);
+        }
+        
+        .back-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="question">
+        <div class="question">你喜不喜欢被炸？💣</div>
+        <div class="buttons">
+            <button onclick="startBombing('yes')">喜欢！😈</button>
+            <button onclick="startBombing('no')">不喜欢！😱</button>
+        </div>
+    </div>
+    
+    <div class="final-message hidden" id="finalMessage">
+        <div class="final-emoji" id="finalEmoji">💥</div>
+        <div class="final-text" id="finalText">BOOM!</div>
+        <button class="back-button" onclick="window.location.href='index.html'">返回首页</button>
+    </div>
+
+    <script>
+        const emojis = {
+            yes: ['😂', '🤣', '😎', '🎉', '🎊', '✨', '🌟', '⭐'],
+            no: ['😱', '😨', '😰', '😭', '🙀', '😵', '💀', '👻']
+        };
+        
+        function startBombing(choice) {
+            document.getElementById('question').classList.add('hidden');
+            
+            // 创建炸弹雨
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    createBomb();
+                }, i * 100);
+            }
+            
+            // 2秒后显示爆炸效果
+            setTimeout(() => {
+                showExplosion(choice);
+            }, 2000);
+        }
+        
+        function createBomb() {
+            const bomb = document.createElement('div');
+            bomb.className = 'bomb';
+            bomb.textContent = '💣';
+            bomb.style.left = Math.random() * 100 + '%';
+            bomb.style.animationDuration = (Math.random() * 1 + 1.5) + 's';
+            document.body.appendChild(bomb);
+            
+            setTimeout(() => {
+                bomb.remove();
+            }, 3000);
+        }
+        
+        function showExplosion(choice) {
+            // 清除所有炸弹
+            document.querySelectorAll('.bomb').forEach(b => b.remove());
+            
+            // 显示大爆炸
+            const explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.textContent = '💥';
+            document.body.appendChild(explosion);
+            
+            // 1秒后显示最终emoji
+            setTimeout(() => {
+                explosion.remove();
+                showFinalEmoji(choice);
+            }, 1000);
+        }
+        
+        function showFinalEmoji(choice) {
+            const finalMessage = document.getElementById('finalMessage');
+            const finalEmoji = document.getElementById('finalEmoji');
+            const finalText = document.getElementById('finalText');
+            
+            const selectedEmojis = emojis[choice];
+            const randomEmoji = selectedEmojis[Math.floor(Math.random() * selectedEmojis.length)];
+            
+            finalEmoji.textContent = randomEmoji;
+            
+            if (choice === 'yes') {
+                finalText.textContent = '哈哈！你真勇敢！🎉';
+            } else {
+                finalText.textContent = '太晚了！已经炸了！😂';
+            }
+            
+            finalMessage.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

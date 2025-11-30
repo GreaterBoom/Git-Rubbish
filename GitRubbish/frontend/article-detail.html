@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章详情 - GitRubbish</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            font-weight: bold;
+            margin: 1.5rem 0 1rem;
+        }
+        .markdown-body h1 { font-size: 2rem; }
+        .markdown-body h2 { font-size: 1.5rem; }
+        .markdown-body h3 { font-size: 1.25rem; }
+        .markdown-body p { margin: 1rem 0; line-height: 1.8; }
+        .markdown-body code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+        .markdown-body pre { background: #f5f5f5; padding: 1rem; border-left: 4px solid #000; overflow-x: auto; margin: 1rem 0; }
+        .markdown-body pre code { background: none; padding: 0; }
+        
+        /* 图片样式 - 保持原始大小和比例 */
+        .markdown-body img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 1rem 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-white">
+    <!-- 顶部导航 -->
+    <header class="border-b-2 border-black bg-white shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="history.back()" class="px-4 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition" title="返回上一页">
+                    ← 返回
+                </button>
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
+                    <img src="picture/002.jpg" alt="GitRubbish Logo" class="w-10 h-10" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    <div class="w-10 h-10 bg-black text-white hidden items-center justify-center font-bold text-lg">
+                        GR
+                    </div>
+                    <h1 class="text-2xl font-bold">GitRubbish</h1>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button id="editBtn" class="px-4 py-2 bg-black text-white font-bold hover:translate-x-0.5 hover:translate-y-0.5 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] hidden">
+                    ✏️ 编辑文章
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- 文章头部 -->
+        <div id="articleHeader" class="bg-white border-2 border-black p-8 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"></div>
+
+        <!-- 文章内容 -->
+        <div id="articleContent" class="markdown-body bg-white border-2 border-black p-8 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"></div>
+
+        <!-- 文章底部操作 -->
+        <div class="bg-white border-2 border-black p-6 mb-8 flex gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <button id="likeBtn" onclick="handleLike()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition flex items-center gap-2">
+                <span class="text-xl">❤️</span>
+                <span id="likeCount">0</span>
+            </button>
+            <button id="collectBtn" onclick="handleCollect()" class="px-6 py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition flex items-center gap-2">
+                <span class="text-xl">⭐</span>
+                <span>收藏</span>
+            </button>
+        </div>
+
+        <!-- 评论区 -->
+        <div class="bg-white border-2 border-black p-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                💬 评论 (<span id="commentCount">0</span>)
+            </h2>
+            
+            <div id="commentForm" class="mb-6"></div>
+            
+            <div id="commentList" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        let articleId = null;
+        let article = null;
+        let isLiked = false;
+        let isCollected = false;
+
+        // 配置marked
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
+        window.onload = () => {
+            articleId = getUrlParam('id');
+            if (!articleId) {
+                showMessage('文章不存在', 'error');
+                setTimeout(() => window.location.href = 'index.html', 1500);
+                return;
+            }
+            loadArticle();
+            loadComments();
+            renderCommentForm();
+        };
+
+        // 加载文章详情
+        async function loadArticle() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/article/detail`, {
+                    params: { id: articleId }
+                });
+                
+                if (response.data.code === 200) {
+                    article = response.data.data;
+                    renderArticle();
+                }
+            } catch (error) {
+                showMessage('加载文章失败', 'error');
+            }
+        }
+
+        // 渲染文章
+        function renderArticle() {
+            const currentUser = getCurrentUser();
+            const canEdit = currentUser && currentUser.id === article.userId;
+            
+            // 显示编辑按钮
+            if (canEdit) {
+                document.getElementById('editBtn').classList.remove('hidden');
+                document.getElementById('editBtn').onclick = () => {
+                    window.location.href = `article-edit.html?id=${articleId}`;
+                };
+            }
+            
+            // 渲染头部
+            document.getElementById('articleHeader').innerHTML = `
+                <h1 class="text-4xl font-bold mb-6 leading-tight">${article.title}</h1>
+                <div class="flex items-center gap-6 text-gray-600 text-sm">
+                    <span class="flex items-center gap-2">👤 ${article.authorName || '匿名'}</span>
+                    <span class="flex items-center gap-2">📅 ${formatDateTime(article.createTime)}</span>
+                    <span class="flex items-center gap-2">👁️ ${article.viewCount || 0}</span>
+                </div>
+            `;
+            
+            // 渲染内容
+            let contentHtml = marked.parse(article.content || '');
+            
+            // 如果有附件，添加下载链接
+            if (article.attachmentUrl && article.attachmentName) {
+                // 从 URL 中提取 filename 参数
+                const urlParams = new URLSearchParams(article.attachmentUrl.split('?')[1]);
+                const filename = urlParams.get('filename');
+                
+                contentHtml += `
+                    <div class="mt-8 p-4 border-2 border-black bg-gray-50">
+                        <h3 class="font-bold text-lg mb-3">📎 附件下载</h3>
+                        <div class="flex items-center justify-between p-3 bg-white border-2 border-black">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">📦</span>
+                                <div>
+                                    <p class="font-bold">${article.attachmentName}</p>
+                                    <p class="text-sm text-gray-600">点击下载附件</p>
+                                </div>
+                            </div>
+                            <button 
+                               onclick="downloadAttachment('${filename}', '${article.attachmentName}')"
+                               class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800 transition">
+                                下载
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('articleContent').innerHTML = contentHtml;
+            
+            // 更新点赞数
+            document.getElementById('likeCount').textContent = article.likeCount || 0;
+        }
+
+        // 点赞
+        async function handleLike() {
+            if (!requireLogin()) return;
+            
+            try {
+                const response = await axios.post(`${API_BASE_URL}/article/like`, {
+                    articleId: articleId
+                });
+                
+                if (response.data.code === 200) {
+                    isLiked = !isLiked;
+                    const likeCount = parseInt(document.getElementById('likeCount').textContent);
+                    document.getElementById('likeCount').textContent = isLiked ? likeCount + 1 : likeCount - 1;
+                    showMessage(isLiked ? '点赞成功' : '取消点赞', 'success');
+                }
+            } catch (error) {
+                showMessage('操作失败', 'error');
+            }
+        }
+
+        // 收藏
+        async function handleCollect() {
+            if (!requireLogin()) return;
+            
+            try {
+                const response = await axios.post(`${API_BASE_URL}/article/collect`, {
+                    articleId: articleId
+                });
+                
+                if (response.data.code === 200) {
+                    isCollected = !isCollected;
+                    showMessage(isCollected ? '收藏成功' : '取消收藏', 'success');
+                }
+            } catch (error) {
+                showMessage('操作失败', 'error');
+            }
+        }
+        
+        // 下载附件
+        function downloadAttachment(filename, originalName) {
+            // 构建下载 URL
+            const downloadUrl = `${API_BASE_URL}/file/download?filename=${encodeURIComponent(filename)}&originalName=${encodeURIComponent(originalName)}`;
+            
+            // 创建隐藏的 a 标签触发下载
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = originalName;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showMessage('开始下载...', 'success');
+        }
+
+        // 渲染评论表单
+        function renderCommentForm() {
+            const token = localStorage.getItem('token');
+            const commentForm = document.getElementById('commentForm');
+            
+            if (token) {
+                commentForm.innerHTML = `
+                    <textarea 
+                        id="commentContent" 
+                        placeholder="写下你的评论..."
+                        class="w-full px-4 py-3 border-2 border-black focus:outline-none resize-none"
+                        rows="4"
+                        maxlength="500"
+                    ></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-sm text-gray-500" id="commentLength">0/500</span>
+                        <button onclick="submitComment()" class="px-6 py-2 bg-black text-white font-bold hover:bg-gray-800">
+                            发表评论
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('commentContent').addEventListener('input', (e) => {
+                    document.getElementById('commentLength').textContent = `${e.target.value.length}/500`;
+                });
+            } else {
+                commentForm.innerHTML = `
+                    <div class="border-2 border-black p-6 text-center">
+                        <a href="login.html" class="text-black font-bold hover:underline">登录</a> 后发表评论
+                    </div>
+                `;
+            }
+        }
+
+        // 提交评论
+        async function submitComment() {
+            const content = document.getElementById('commentContent').value.trim();
+            
+            if (!content) {
+                showMessage('请输入评论内容', 'error');
+                return;
+            }
+            
+            try {
+                const response = await axios.post(`${API_BASE_URL}/comment`, {
+                    articleId: articleId,
+                    content: content
+                });
+                
+                if (response.data.code === 200) {
+                    showMessage('评论成功', 'success');
+                    document.getElementById('commentContent').value = '';
+                    document.getElementById('commentLength').textContent = '0/500';
+                    loadComments();
+                }
+            } catch (error) {
+                showMessage('评论失败', 'error');
+            }
+        }
+
+        // 加载评论列表
+        async function loadComments() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/comment/list`, {
+                    params: {
+                        articleId: articleId,
+                        page: 1,
+                        size: 100
+                    }
+                });
+                
+                if (response.data.code === 200) {
+                    const comments = response.data.data.records || [];
+                    document.getElementById('commentCount').textContent = comments.length;
+                    renderComments(comments);
+                }
+            } catch (error) {
+                console.error('加载评论失败', error);
+            }
+        }
+
+        // 渲染评论列表
+        function renderComments(comments) {
+            const commentList = document.getElementById('commentList');
+            
+            if (comments.length === 0) {
+                commentList.innerHTML = '<div class="text-center text-gray-500 py-8">暂无评论</div>';
+                return;
+            }
+            
+            commentList.innerHTML = comments.map(comment => `
+                <div class="border-2 border-gray-200 p-4 hover:border-black transition">
+                    <div class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm">
+                            ${(comment.userName || '匿名')[0].toUpperCase()}
+                        </span>
+                        ${comment.userName || '匿名用户'}
+                    </div>
+                    <div class="text-gray-700 mb-2 ml-10">${comment.content}</div>
+                    <div class="text-sm text-gray-500 ml-10">${formatDateTime(comment.createTime)}</div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
